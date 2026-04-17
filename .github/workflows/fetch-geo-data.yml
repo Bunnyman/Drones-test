@@ -1,0 +1,157 @@
+name: Fetch Geographic Data
+on:
+  push:
+    branches:
+      - claude/drone-location-identification-Mwiwz
+
+jobs:
+  fetch-osm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Query Overpass API for waterways
+        run: |
+          curl -s --retry 3 --retry-delay 5 \
+            --data-urlencode 'data=[out:json][timeout:120];(way["waterway"~"river|stream"](around:25000,49.17252599817238,37.25876955636144););out geom;' \
+            "https://overpass-api.de/api/interpreter" \
+            -o data/waterways.json
+
+      - name: Query Overpass API for roads
+        run: |
+          curl -s --retry 3 --retry-delay 5 \
+            --data-urlencode 'data=[out:json][timeout:120];(way["highway"~"primary|secondary|tertiary|unclassified|track|residential"](around:25000,49.17252599817238,37.25876955636144););out geom;' \
+            "https://overpass-api.de/api/interpreter" \
+            -o data/roads.json
+
+      - name: Process and summarize data
+        run: |
+          python3 << 'PYEOF'
+          import json, math
+
+          center_lat, center_lon = 49.17252599817238, 37.25876955636144
+
+          def haversine(lat1, lon1, lat2, lon2):
+              dlat = math.radians(lat2 - lat1)
+              dlon = math.radians(lon2 - lon1)
+              a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1))*math.cos(math.radians(lat2))*math.sin(dlon/2)**2
+              return 6371 * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+          # Process waterways
+          with open("data/waterways.json") as f:
+              ww = json.load(f)
+
+          waterway_summary = []
+          for el in ww.get("elements", []):
+              tags = el.get("tags", {})
+              geom = el.get("geometry", [])
+              name = tags.get("name", tags.get("name:uk", tags.get("name:en", "unnamed")))
+              wtype = tags.get("waterway", "unknown")
+              if geom:
+                  coords = [(p["lat"], p["lon"]) for p in geom]
+                  waterway_summary.append({
+                      "id": el.get("id"),
+                      "name": name,
+                      "type": wtype,
+                      "points": len(coords),
+                      "start": coords[0],
+                      "end": coords[-1],
+                      "coords": coords
+                  })
+
+          with open("data/waterways_summary.json", "w") as f:
+              json.dump(waterway_summary, f, indent=2)
+
+          print(f"Waterways: {len(waterway_summary)} segments")
+          names = set(w["name"] for w in waterway_summary)
+          for n in sorted(names):
+              segs = [w for w in waterway_summary if w["name"] == n]
+              print(f"  {n}: {len(segs)} segments")
+
+          # Process roads
+          with open("data/roads.json") as f:
+              rd = json.load(f)
+
+          road_summary = []
+          for el in rd.get("elements", []):
+              tags = el.get("tags", {})
+              geom = el.get("geometry", [])
+              name = tags.get("name", tags.get("ref", "unnamed"))
+              rtype = tags.get("highway", "unknown")
+              if geom:
+                  coords = [(p["lat"], p["lon"]) for p in geom]
+                  # Calculate bearing of road segment
+                  if len(coords) >= 2:
+                      lat1, lon1 = coords[0]
+                      lat2, lon2 = coords[-1]
+                      dlon = math.radians(lon2 - lon1)
+                      y = math.sin(dlon) * math.cos(math.radians(lat2))
+                      x = math.cos(math.radians(lat1))*math.sin(math.radians(lat2)) - math.sin(math.radians(lat1))*math.cos(math.radians(lat2))*math.cos(dlon)
+                      bearing = (math.degrees(math.atan2(y, x)) + 360) % 360
+                  else:
+                      bearing = 0
+
+                  road_summary.append({
+                      "id": el.get("id"),
+                      "name": name,
+                      "type": rtype,
+                      "bearing": round(bearing, 1),
+                      "points": len(coords),
+                      "start": coords[0],
+                      "end": coords[-1],
+                      "coords": coords
+                  })
+
+          with open("data/roads_summary.json", "w") as f:
+              json.dump(road_summary, f, indent=2)
+
+          print(f"\nRoads: {len(road_summary)} segments")
+
+          # Find roads with WSW bearing (240-275 degrees) that cross waterways
+          wsw_roads = [r for r in road_summary if 240 <= r["bearing"] <= 275 or 60 <= r["bearing"] <= 95]
+          print(f"\nRoads with WSW/ENE bearing (240-275° or 60-95°): {len(wsw_roads)}")
+          for r in wsw_roads[:30]:
+              print(f"  {r['name']} ({r['type']}) bearing={r['bearing']}° from {r['start']} to {r['end']}")
+
+          # Find waterway-road crossings
+          print("\n--- Waterway-Road Crossing Analysis ---")
+          crossings = []
+          for road in wsw_roads:
+              for ww_seg in waterway_summary:
+                  # Check if bounding boxes overlap
+                  r_lats = [c[0] for c in road["coords"]]
+                  r_lons = [c[1] for c in road["coords"]]
+                  w_lats = [c[0] for c in ww_seg["coords"]]
+                  w_lons = [c[1] for c in ww_seg["coords"]]
+
+                  if (min(r_lats) <= max(w_lats) and max(r_lats) >= min(w_lats) and
+                      min(r_lons) <= max(w_lons) and max(r_lons) >= min(w_lons)):
+                      crossings.append({
+                          "road": f"{road['name']} ({road['type']}, bearing={road['bearing']}°)",
+                          "road_id": road["id"],
+                          "waterway": f"{ww_seg['name']} ({ww_seg['type']})",
+                          "waterway_id": ww_seg["id"],
+                          "road_start": road["start"],
+                          "road_end": road["end"],
+                      })
+
+          with open("data/crossings.json", "w") as f:
+              json.dump(crossings, f, indent=2)
+
+          print(f"Potential crossings (WSW roads x waterways): {len(crossings)}")
+          for c in crossings[:50]:
+              print(f"  Road: {c['road']}")
+              print(f"  Water: {c['waterway']}")
+              print(f"  Road from {c['road_start']} to {c['road_end']}")
+              print()
+          PYEOF
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --staged --quiet || git commit -m "Add OSM geographic data for geolocation analysis"
+          git push
