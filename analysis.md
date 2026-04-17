@@ -170,6 +170,25 @@ To confirm this location precisely, one would need to:
 4. **Simulate the drone's perspective** using 3D view from ~100 m altitude, looking WSW (260°)
 5. **Verify the horizon** — check if distant settlements match what's faintly visible in the image
 
+### Environment limitations encountered
+
+Attempts to access the following data sources all returned 403 from the sandbox egress proxy:
+- OpenStreetMap Overpass API (`overpass-api.de`, `overpass.kumi.systems`, `maps.mail.ru`)
+- OpenStreetMap tile server and API (`tile.openstreetmap.org`, `api.openstreetmap.org`)
+- Nominatim geocoder (`nominatim.openstreetmap.org`)
+- Wikipedia / Wikidata (`en.wikipedia.org`, `www.wikidata.org`, `query.wikidata.org`)
+- ArcGIS World Imagery, Google Maps, OpenTopoMap, Thunderforest
+- Humanitarian Data Exchange (`data.humdata.org`)
+
+Only GitHub domains (`github.com`, `api.github.com`, `raw.githubusercontent.com`,
+`codeload.github.com`) are in the allowlist. Natural Earth's 10m Europe rivers dataset
+was retrieved via GitHub but only contains the major Oskil river for this area — no
+coverage of small tributaries like the Bereka, Iziumets streams, or unnamed ravines
+needed for meander-matching.
+
+The final meander-matching step therefore cannot be executed from within this sandbox;
+it requires a human operator with access to satellite imagery tools.
+
 ### Alternative candidate areas (if primary hypothesis fails):
 - Along the Mokryi Iziumets, ~5–8 km south of Izium (near Kamenka village)
 - Along a Bereka River section ~15 km west of center
