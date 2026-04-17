@@ -140,23 +140,96 @@ The river visible in the image is most likely:
 
 ---
 
-## 7. Location Estimate
+## 7. OSM Data Analysis (via GitHub Actions)
 
-### Best estimate
+A GitHub Action was used to query the Overpass API from GitHub's infrastructure
+(bypassing the sandbox egress restrictions) and retrieve all waterways and roads
+within 25 km of the center point.
 
-The drone is most likely in the area south of Izium, looking WSW along or near the Brazhkivka-Virnopillya road corridor:
+### Waterways found (25 km radius)
 
-**Estimated position: ~49.05°N, 37.17°E (±5 km)**
+| Name (Ukrainian) | Type | Segments | South of Donets? |
+|-------------------|------|----------|------------------|
+| Сіверський Донець | river | 3 | N/A (IS the Donets) |
+| Оскіл | river | 1 | No |
+| Мокрий Ізюмець | stream | 2 | No (north of Donets) |
+| Сухий Ізюмець | stream | 3 | No (north of Donets) |
+| Велика Камишеваха | stream | 5 | **Yes** |
+| Велика Комишуваха | stream | 4 | **Yes** |
+| Грековка | stream | 7 | **Yes** |
+| річка Греківка | stream | 5 | **Yes** |
+| річка Букинка | stream | 1 | **Yes** |
+| річка Купна | stream | 3 | No |
+| Бахтин | stream | 7 | No |
+| Беречка | stream | 1 | No |
+| + 61 unnamed segments | river | — | mixed |
+
+**Key correction:** The Mokryi and Sukhyi Iziumets rivers both flow from the
+**north** into the Donets, not from the south. They are entirely north of Izium
+at 49.21–49.47°N. The streams south of the Donets in the flat agricultural
+upland are: **Грековка/Греківка**, **Велика Камишеваха/Комишуваха**, and
+**Букинка**.
+
+### Crossing analysis: WSW roads × streams
+
+All crossings where a WSW-bearing road (240–280°) intersects a stream south
+of the Donets (lat < 49.18°N):
+
+| Stream | Crossing point | Road | Road bearing | Stream bearing | Angle | Dist from center |
+|--------|---------------|------|-------------|---------------|-------|-----------------|
+| **Грековка** | **49.107°N, 37.280°E** | unnamed track | 276.7° | 24.8° | **108°** | **7.4 km** |
+| річка Греківка | 49.070°N, 37.291°E | unnamed track | 267.6° | 310.4° | 43° | 11.6 km |
+| Велика Камишеваха | 49.031°N, 37.140°E | unnamed road | 252.7° | 280° | 27° | 17.9 km |
+| Велика Камишеваха | 49.031°N, 37.127°E | unnamed road | 78.9° | — | — | 18.4 km |
+| Велика Камишеваха | 49.030°N, 37.103°E | С-211407 | 273.7° | — | — | 19.5 km |
+
+### Best match: Грековка at 49.107°N, 37.280°E
+
+The Грековка crossing is the strongest match because:
+
+1. **Perpendicular crossing** (108°) — the stream flows NNE (25°) and crosses the
+   W-heading road at nearly a right angle. This matches the image where the river
+   clearly **crosses** the field of view rather than running parallel to it.
+2. **Closest to center** (7.4 km) — well within the 25 km radius.
+3. **Flat agricultural terrain** — located in the upland south of the Donets valley,
+   consistent with the treeless steppe visible in the image.
+4. **Part of a larger system** — Грековка and річка Греківка together form a
+   medium-sized stream system flowing NNW from ~49.02°N to ~49.13°N.
+
+The road bearing (276.7°) is ~15° off from the sun-derived camera heading (262°),
+which is acceptable if the sun is slightly left of center in the frame (consistent
+with the image).
+
+---
+
+## 8. Location Estimate
+
+### Best estimate (revised with OSM data)
+
+**Estimated drone position: ~49.11°N, 37.30°E (±2 km)**
+
+The drone is ~1–2 km east of the Грековка crossing, heading W/WSW along an
+unnamed track, with the Грековка stream crossing the road ahead.
 
 | Parameter | Value | Confidence |
 |-----------|-------|------------|
-| General area | South of Izium, between Brazhkivka and the center point | HIGH |
-| Camera heading | 250°–262° (WSW) | HIGH |
-| River identification | Bereka tributary or Iziumets tributary | MEDIUM |
-| Road identification | Brazhkivka–Virnopillya road or similar WSW track | MEDIUM |
-| Exact position | ~49.05°N, 37.17°E | LOW (needs satellite meander-matching) |
+| General area | South of Izium, agricultural upland | HIGH |
+| Camera heading | 262°–277° (WSW to W) | HIGH |
+| River identification | **Грековка (Hrekivka) stream** | MEDIUM-HIGH |
+| Road identification | Unnamed track heading ~277° | MEDIUM |
+| Crossing point | 49.107°N, 37.280°E | MEDIUM-HIGH |
+| Drone position | ~49.11°N, 37.30°E | MEDIUM |
 
-### Distance from center: ~14 km (within 25 km radius)
+### Distance from center: ~7.6 km (within 25 km radius)
+
+### Alternative candidate
+
+| | Велика Камишеваха × С-211407 |
+|---|---|
+| Crossing | 49.031°N, 37.140°E |
+| Road bearing | 252.7° (better heading match) |
+| Problem | Stream runs parallel to road (27° crossing angle) — doesn't match image |
+| Distance | 17.9 km from center |
 
 ---
 
