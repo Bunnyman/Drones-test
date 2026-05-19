@@ -104,18 +104,25 @@ HTML_TEMPLATE = """<!doctype html>
   #scrub-track {
     position: absolute;
     top: 22px; left: 7px; right: 7px;
-    height: 12px;
-    background: #333;
-    border-radius: 6px;
+    height: 14px;
+    background: #222;
+    border-radius: 7px;
     overflow: hidden;
+  }
+  #heat {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    image-rendering: pixelated;
   }
   .scrub-band {
     position: absolute;
     top: 0; bottom: 0;
-    background: rgba(95, 255, 180, 0.55);
-    border-left: 1px solid #5fb;
-    border-right: 1px solid #5fb;
+    background: rgba(255, 255, 255, 0.18);
+    border-left: 2px solid #fff;
+    border-right: 2px solid #fff;
     box-sizing: border-box;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.4) inset;
   }
   #slider {
     position: absolute;
@@ -188,9 +195,13 @@ HTML_TEMPLATE = """<!doctype html>
 <div id="panel">
   <div id="row1">
     <span id="current">&mdash;</span>
-    <span>Aggregated events: <span id="count">0</span> / __TOTAL__
-      across __DAYS__ days (__DATE_RANGE__)</span>
+    <span>In window: <span id="count">0</span> /
+      <span id="poolCount">__TOTAL__</span>
+      <span id="poolNote">(all __DAYS__ days, __DATE_RANGE__)</span></span>
     <span style="flex:1"></span>
+    <label>Month:
+      <select id="monthSel"></select>
+    </label>
     <label>Window:
       <select id="window">
         <option value="1800">30 min</option>
@@ -202,6 +213,7 @@ HTML_TEMPLATE = """<!doctype html>
   </div>
   <div id="scrub">
     <div id="scrub-track">
+      <canvas id="heat"></canvas>
       <div class="scrub-band" id="band1"></div>
       <div class="scrub-band" id="band2" style="display:none"></div>
     </div>
@@ -235,11 +247,35 @@ map.addLayer(cluster);
 const slider = document.getElementById('slider');
 const currentLabel = document.getElementById('current');
 const countLabel = document.getElementById('count');
+const poolCount = document.getElementById('poolCount');
+const poolNote = document.getElementById('poolNote');
 const windowSel = document.getElementById('window');
+const monthSel = document.getElementById('monthSel');
 const playBtn = document.getElementById('play');
 const band1 = document.getElementById('band1');
 const band2 = document.getElementById('band2');
 const axis = document.getElementById('scrub-axis');
+const heatCanvas = document.getElementById('heat');
+
+// --- Month selector: "All time" plus every YYYY-MM present in data. ---
+const monthSet = new Set(EVENTS.map(e => e.date.slice(0, 7)));
+const months = [...monthSet].sort();
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function monthLabel(ym) {
+  const [y, m] = ym.split('-');
+  return `${MONTH_NAMES[parseInt(m,10)-1]} ${y}`;
+}
+const optAll = document.createElement('option');
+optAll.value = ''; optAll.textContent = 'All time';
+monthSel.appendChild(optAll);
+for (const ym of months) {
+  const o = document.createElement('option');
+  o.value = ym; o.textContent = monthLabel(ym);
+  monthSel.appendChild(o);
+}
+
+let activePool = EVENTS;   // events left after month filter
+let heatBins = [];         // histogram of activePool over 24 h
 
 // Build hour scale: tick every hour, labelled every 3h.
 for (let h = 0; h <= 24; h++) {
@@ -264,6 +300,75 @@ function fmtTod(secs) {
   return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
 }
 
+// Map a 0..1 value to a "heat" colour (dark → blue → cyan → yellow → red).
+function heatColor(v) {
+  if (v <= 0) return 'rgba(0,0,0,0)';
+  // Five-stop gradient.
+  const stops = [
+    [0.00, [ 40,  40,  80]],
+    [0.15, [ 30,  90, 180]],
+    [0.40, [ 70, 200, 200]],
+    [0.70, [255, 220,  60]],
+    [1.00, [220,  40,  40]],
+  ];
+  v = Math.max(0, Math.min(1, v));
+  for (let i = 1; i < stops.length; i++) {
+    if (v <= stops[i][0]) {
+      const [a, b] = [stops[i-1], stops[i]];
+      const t = (v - a[0]) / (b[0] - a[0]);
+      const r = Math.round(a[1][0] + t * (b[1][0] - a[1][0]));
+      const g = Math.round(a[1][1] + t * (b[1][1] - a[1][1]));
+      const bl= Math.round(a[1][2] + t * (b[1][2] - a[1][2]));
+      return `rgb(${r},${g},${bl})`;
+    }
+  }
+  return 'rgb(220,40,40)';
+}
+
+const HEAT_BINS = 288;          // 5-minute buckets across 24 h
+const HEAT_BIN_SECS = 86400 / HEAT_BINS;
+
+function rebuildPool() {
+  const ym = monthSel.value;
+  activePool = ym ? EVENTS.filter(e => e.date.startsWith(ym)) : EVENTS;
+  // Build histogram once per pool change.
+  heatBins = new Array(HEAT_BINS).fill(0);
+  for (const e of activePool) {
+    heatBins[Math.min(HEAT_BINS - 1, Math.floor(e.tod / HEAT_BIN_SECS))]++;
+  }
+  poolCount.textContent = activePool.length;
+  if (ym) {
+    const days = new Set(activePool.map(e => e.date)).size;
+    poolNote.textContent = `(${monthLabel(ym)}, ${days} day${days===1?'':'s'})`;
+  } else {
+    poolNote.textContent = `(all __DAYS__ days, __DATE_RANGE__)`;
+  }
+  drawHeatmap();
+}
+
+function drawHeatmap() {
+  // Match the CSS pixel size of the track so 1 bin = 1 px column scaled.
+  const cssW = heatCanvas.clientWidth || heatCanvas.parentElement.clientWidth;
+  const cssH = heatCanvas.clientHeight || heatCanvas.parentElement.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  heatCanvas.width  = Math.max(1, Math.round(cssW * dpr));
+  heatCanvas.height = Math.max(1, Math.round(cssH * dpr));
+  const ctx = heatCanvas.getContext('2d');
+  ctx.clearRect(0, 0, heatCanvas.width, heatCanvas.height);
+
+  const max = Math.max(1, ...heatBins);
+  // Use sqrt scaling so quiet hours stay visible without saturating peaks.
+  const norm = (n) => Math.sqrt(n / max);
+  const W = heatCanvas.width;
+  const H = heatCanvas.height;
+  for (let i = 0; i < HEAT_BINS; i++) {
+    const x0 = Math.floor((i     / HEAT_BINS) * W);
+    const x1 = Math.floor(((i+1) / HEAT_BINS) * W);
+    ctx.fillStyle = heatColor(norm(heatBins[i]));
+    ctx.fillRect(x0, 0, x1 - x0, H);
+  }
+}
+
 function update() {
   const start = parseInt(slider.value, 10);
   const win = parseInt(windowSel.value, 10);
@@ -274,7 +379,7 @@ function update() {
     if (end <= 86400) return tod >= start && tod < end;
     return tod >= start || tod < (end - 86400);
   };
-  const visible = EVENTS.filter(e => inWindow(e.tod));
+  const visible = activePool.filter(e => inWindow(e.tod));
 
   // Aggregate by rounded location across ALL dates.
   const key = (e) => `${e.lat.toFixed(4)},${e.lon.toFixed(4)}`;
@@ -333,6 +438,8 @@ function update() {
 
 slider.addEventListener('input', update);
 windowSel.addEventListener('change', update);
+monthSel.addEventListener('change', () => { rebuildPool(); update(); });
+window.addEventListener('resize', drawHeatmap);
 
 let playing = false;
 let timer = null;
@@ -352,6 +459,7 @@ playBtn.addEventListener('click', () => {
   }
 });
 
+rebuildPool();
 update();
 </script>
 </body>
