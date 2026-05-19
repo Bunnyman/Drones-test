@@ -10,7 +10,7 @@ from pathlib import Path
 
 import mgrs
 
-CSV_PATH = Path("/root/.claude/uploads/fe57542c-52bb-495e-8210-f0705ca7e96d/9c2802f6-events.csv")
+CSV_PATH = Path("/root/.claude/uploads/a6225105-8a3e-41a6-b9c3-249c809118bc/2bd6693e-events.csv")
 OUT_PATH = Path(__file__).parent / "drones_map.html"
 
 MGRS_RE = re.compile(r"(\d{1,2}[A-Z])\s*([A-Z]{2})\s*(\d{5})\s*(\d{5})")
@@ -22,15 +22,27 @@ def parse_rows():
     skipped = 0
     with CSV_PATH.open() as f:
         for row in csv.DictReader(f):
-            raw = row.get("mgrs") or ""
-            m = MGRS_RE.search(raw)
-            if not m:
-                skipped += 1
-                continue
-            mgrs_str = f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}"
-            try:
-                lat, lon = converter.toLatLon(mgrs_str)
-            except Exception:
+            lat_raw = (row.get("lat") or "").strip()
+            lon_raw = (row.get("lon") or "").strip()
+            mgrs_str = ""
+            m = MGRS_RE.search(row.get("mgrs") or "")
+            if m:
+                mgrs_str = f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}"
+
+            if lat_raw and lon_raw:
+                try:
+                    lat = float(lat_raw)
+                    lon = float(lon_raw)
+                except ValueError:
+                    skipped += 1
+                    continue
+            elif mgrs_str:
+                try:
+                    lat, lon = converter.toLatLon(mgrs_str)
+                except Exception:
+                    skipped += 1
+                    continue
+            else:
                 skipped += 1
                 continue
             try:
