@@ -328,14 +328,23 @@ function heatColor(v) {
 const HEAT_BINS = 288;          // 5-minute buckets across 24 h
 const HEAT_BIN_SECS = 86400 / HEAT_BINS;
 
+function recomputeHeatBins() {
+  // Heatmap reflects only events inside the current map viewport (and the
+  // active month filter). Re-runs on pan/zoom and on month change.
+  const bounds = map.getBounds();
+  heatBins = new Array(HEAT_BINS).fill(0);
+  let visibleInPool = 0;
+  for (const e of activePool) {
+    if (!bounds.contains([e.lat, e.lon])) continue;
+    heatBins[Math.min(HEAT_BINS - 1, Math.floor(e.tod / HEAT_BIN_SECS))]++;
+    visibleInPool++;
+  }
+  return visibleInPool;
+}
+
 function rebuildPool() {
   const ym = monthSel.value;
   activePool = ym ? EVENTS.filter(e => e.date.startsWith(ym)) : EVENTS;
-  // Build histogram once per pool change.
-  heatBins = new Array(HEAT_BINS).fill(0);
-  for (const e of activePool) {
-    heatBins[Math.min(HEAT_BINS - 1, Math.floor(e.tod / HEAT_BIN_SECS))]++;
-  }
   poolCount.textContent = activePool.length;
   if (ym) {
     const days = new Set(activePool.map(e => e.date)).size;
@@ -343,6 +352,7 @@ function rebuildPool() {
   } else {
     poolNote.textContent = `(all __DAYS__ days, __DATE_RANGE__)`;
   }
+  recomputeHeatBins();
   drawHeatmap();
 }
 
@@ -440,6 +450,7 @@ slider.addEventListener('input', update);
 windowSel.addEventListener('change', update);
 monthSel.addEventListener('change', () => { rebuildPool(); update(); });
 window.addEventListener('resize', drawHeatmap);
+map.on('moveend zoomend', () => { recomputeHeatBins(); drawHeatmap(); });
 
 let playing = false;
 let timer = null;
