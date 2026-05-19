@@ -38,14 +38,17 @@ def parse_rows():
             except ValueError:
                 skipped += 1
                 continue
+            tod = ts.hour * 3600 + ts.minute * 60 + ts.second
             events.append({
-                "t": int(ts.timestamp()),
+                "tod": tod,
+                "date": row["date"],
+                "time": row["time"],
                 "lat": round(lat, 6),
                 "lon": round(lon, 6),
                 "mgrs": mgrs_str,
                 "comment": (row.get("comment") or "").strip(),
             })
-    events.sort(key=lambda e: e["t"])
+    events.sort(key=lambda e: e["tod"])
     print(f"Parsed {len(events)} events (skipped {skipped})", file=sys.stderr)
     return events
 
@@ -90,28 +93,20 @@ HTML_TEMPLATE = """<!doctype html>
 <div id="panel">
   <div id="row1">
     <span id="current">&mdash;</span>
-    <span>Events in window: <span id="count">0</span> / __TOTAL__</span>
+    <span>Aggregated events: <span id="count">0</span> / __TOTAL__
+      across __DAYS__ days (__DATE_RANGE__)</span>
     <span style="flex:1"></span>
     <label>Window:
       <select id="window">
-        <option value="1800">30 min (&plusmn;15m)</option>
-        <option value="3600" selected>1 hour (&plusmn;30m)</option>
-        <option value="7200">2 hours (&plusmn;1h)</option>
-        <option value="21600">6 hours (&plusmn;3h)</option>
-      </select>
-    </label>
-    <label>Speed:
-      <select id="speed">
-        <option value="900">15 min / s</option>
-        <option value="1800" selected>30 min / s</option>
-        <option value="3600">1 h / s</option>
-        <option value="10800">3 h / s</option>
+        <option value="1800">30 min</option>
+        <option value="3600" selected>1 hour</option>
+        <option value="7200">2 hours</option>
       </select>
     </label>
     <button id="play">&#9658; Play</button>
   </div>
   <div id="row2">
-    <input id="slider" type="range" min="0" max="100" value="0" step="1">
+    <input id="slider" type="range" min="0" max="86340" value="0" step="60">
   </div>
 </div>
 
@@ -119,9 +114,6 @@ HTML_TEMPLATE = """<!doctype html>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
 const EVENTS = __DATA__;
-
-const tMin = EVENTS[0].t;
-const tMax = EVENTS[EVENTS.length - 1].t;
 
 const map = L.map('map', { preferCanvas: true });
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -144,28 +136,28 @@ const slider = document.getElementById('slider');
 const currentLabel = document.getElementById('current');
 const countLabel = document.getElementById('count');
 const windowSel = document.getElementById('window');
-const speedSel = document.getElementById('speed');
 const playBtn = document.getElementById('play');
 
-// Range covers tMin..tMax in 60-second steps.
-slider.min = tMin;
-slider.max = tMax;
-slider.step = 60;
-slider.value = tMin;
-
-function fmt(ts) {
-  const d = new Date(ts * 1000);
-  return d.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+function fmtTod(secs) {
+  secs = ((secs % 86400) + 86400) % 86400;
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
 }
 
 function update() {
-  const center = parseInt(slider.value, 10);
-  const half = parseInt(windowSel.value, 10) / 2;
-  const lo = center - half;
-  const hi = center + half;
-  const visible = EVENTS.filter(e => e.t >= lo && e.t <= hi);
+  const start = parseInt(slider.value, 10);
+  const win = parseInt(windowSel.value, 10);
+  const end = start + win;
 
-  // Aggregate by rounded location so co-located events share a marker.
+  // [start, end) with wrap-around past midnight.
+  const inWindow = (tod) => {
+    if (end <= 86400) return tod >= start && tod < end;
+    return tod >= start || tod < (end - 86400);
+  };
+  const visible = EVENTS.filter(e => inWindow(e.tod));
+
+  // Aggregate by rounded location across ALL dates.
   const key = (e) => `${e.lat.toFixed(4)},${e.lon.toFixed(4)}`;
   const groups = new Map();
   for (const e of visible) {
@@ -178,7 +170,7 @@ function update() {
   for (const list of groups.values()) {
     const first = list[0];
     const n = list.length;
-    const radius = 6 + Math.min(20, Math.sqrt(n) * 3);
+    const radius = 6 + Math.min(22, Math.sqrt(n) * 3.5);
     const marker = L.circleMarker([first.lat, first.lon], {
       radius,
       color: '#ff3030',
@@ -186,21 +178,23 @@ function update() {
       fillColor: '#ff5050',
       fillOpacity: 0.55,
     });
-    const lines = list.map(e =>
-      `<div>${fmt(e.t)}${e.comment ? ' &mdash; ' + e.comment.replace(/</g,'&lt;') : ''}</div>`
+    const sorted = list.slice().sort((a, b) =>
+      a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date));
+    const lines = sorted.map(e =>
+      `<div>${e.date} ${e.time}${e.comment ? ' &mdash; ' + e.comment.replace(/</g,'&lt;') : ''}</div>`
     );
     marker.bindPopup(
-      `<b>${n} event${n>1?'s':''}</b><br>` +
+      `<b>${n} event${n>1?'s':''} at this spot</b><br>` +
       `MGRS: ${first.mgrs}<br>` +
       `${first.lat.toFixed(5)}, ${first.lon.toFixed(5)}<hr style="margin:4px 0">` +
-      lines.join('')
+      `<div style="max-height:200px;overflow:auto;font-size:12px">${lines.join('')}</div>`
     );
     cluster.addLayer(marker);
   }
 
   countLabel.textContent = visible.length;
-  const winLbl = (half * 2 / 3600).toFixed(half * 2 % 3600 === 0 ? 0 : 1);
-  currentLabel.textContent = `${fmt(center)}  (window: ${winLbl}h)`;
+  currentLabel.textContent =
+    `Window ${fmtTod(start)} – ${fmtTod(start + win)}  (any date)`;
 }
 
 slider.addEventListener('input', update);
@@ -212,13 +206,13 @@ playBtn.addEventListener('click', () => {
   playing = !playing;
   playBtn.innerHTML = playing ? '&#10074;&#10074; Pause' : '&#9658; Play';
   if (playing) {
+    // Advance 15 min every 200 ms → full 24 h sweep in ~19 s.
     timer = setInterval(() => {
-      const step = parseInt(speedSel.value, 10) / 10; // 10 fps
-      let v = parseInt(slider.value, 10) + step;
-      if (v > tMax) { v = tMin; }
+      let v = parseInt(slider.value, 10) + 900;
+      if (v > 86340) v = 0;
       slider.value = v;
       update();
-    }, 100);
+    }, 200);
   } else {
     clearInterval(timer);
   }
@@ -233,10 +227,14 @@ update();
 
 def main():
     events = parse_rows()
+    dates = sorted({e["date"] for e in events})
+    date_range = f"{dates[0]} → {dates[-1]}"
     html = (
         HTML_TEMPLATE
         .replace("__DATA__", json.dumps(events, separators=(",", ":")))
         .replace("__TOTAL__", str(len(events)))
+        .replace("__DAYS__", str(len(dates)))
+        .replace("__DATE_RANGE__", date_range)
     )
     OUT_PATH.write_text(html)
     print(f"Wrote {OUT_PATH} ({OUT_PATH.stat().st_size:,} bytes)")
