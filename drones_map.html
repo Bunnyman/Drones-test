@@ -8,29 +8,112 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <style>
   html, body { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  #map { position: absolute; top: 0; bottom: 110px; left: 0; right: 0; }
+  #map { position: absolute; top: 0; bottom: 140px; left: 0; right: 0; }
   #panel {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 110px;
+    position: absolute; bottom: 0; left: 0; right: 0; height: 140px;
     background: #1e1e1e; color: #eee; padding: 10px 16px; box-sizing: border-box;
-    display: flex; flex-direction: column; gap: 6px; z-index: 1000;
+    display: flex; flex-direction: column; gap: 4px; z-index: 1000;
     box-shadow: 0 -2px 8px rgba(0,0,0,.4);
   }
   #row1 { display: flex; align-items: center; gap: 12px; font-size: 13px; }
-  #row2 { display: flex; align-items: center; gap: 12px; }
-  #slider { flex: 1; }
   button {
     background: #2d7; border: 0; color: #111; padding: 6px 12px;
     border-radius: 4px; cursor: pointer; font-weight: 600;
   }
   button:hover { background: #5fb; }
-  #current { font-weight: 600; min-width: 180px; }
+  #current { font-weight: 600; min-width: 220px; }
   #count { color: #5fb; font-weight: 600; }
-  .legend {
-    background: rgba(30,30,30,.85); color: #eee; padding: 6px 10px;
-    border-radius: 4px; font-size: 12px; line-height: 1.4;
-  }
   select { background: #333; color: #eee; border: 1px solid #555; padding: 4px; border-radius: 3px; }
   label { font-size: 12px; opacity: .8; }
+
+  /* --- scrubber --- */
+  #scrub {
+    position: relative;
+    height: 70px;
+    margin-top: 4px;
+  }
+  /* Track is inset by half the thumb width (7px) so its 0–100 % range
+     matches the actual travel of the slider thumb. */
+  #scrub-track {
+    position: absolute;
+    top: 22px; left: 7px; right: 7px;
+    height: 12px;
+    background: #333;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .scrub-band {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: rgba(95, 255, 180, 0.55);
+    border-left: 1px solid #5fb;
+    border-right: 1px solid #5fb;
+    box-sizing: border-box;
+  }
+  #slider {
+    position: absolute;
+    top: 16px; left: 0; right: 0;
+    width: 100%;
+    margin: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    height: 24px;
+  }
+  #slider::-webkit-slider-runnable-track {
+    background: transparent;
+    height: 24px;
+    border: 0;
+  }
+  #slider::-moz-range-track {
+    background: transparent;
+    height: 24px;
+    border: 0;
+  }
+  #slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 26px;
+    background: #fff;
+    border: 1px solid #000;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-top: -1px;
+    box-shadow: 0 0 4px rgba(0,0,0,.6);
+  }
+  #slider::-moz-range-thumb {
+    width: 14px;
+    height: 26px;
+    background: #fff;
+    border: 1px solid #000;
+    border-radius: 3px;
+    cursor: pointer;
+    box-shadow: 0 0 4px rgba(0,0,0,.6);
+  }
+  #scrub-axis {
+    position: absolute;
+    top: 44px; left: 7px; right: 7px;
+    height: 24px;
+    pointer-events: none;
+  }
+  .scrub-tick {
+    position: absolute;
+    width: 1px;
+    background: #777;
+    top: 0;
+    transform: translateX(-0.5px);
+  }
+  .scrub-tick.major { height: 8px; background: #aaa; }
+  .scrub-tick.minor { height: 4px; }
+  .scrub-label {
+    position: absolute;
+    top: 10px;
+    font-size: 11px;
+    color: #bbb;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
 </style>
 </head>
 <body>
@@ -50,8 +133,13 @@
     </label>
     <button id="play">&#9658; Play</button>
   </div>
-  <div id="row2">
+  <div id="scrub">
+    <div id="scrub-track">
+      <div class="scrub-band" id="band1"></div>
+      <div class="scrub-band" id="band2" style="display:none"></div>
+    </div>
     <input id="slider" type="range" min="0" max="86340" value="0" step="60">
+    <div id="scrub-axis"></div>
   </div>
 </div>
 
@@ -82,6 +170,25 @@ const currentLabel = document.getElementById('current');
 const countLabel = document.getElementById('count');
 const windowSel = document.getElementById('window');
 const playBtn = document.getElementById('play');
+const band1 = document.getElementById('band1');
+const band2 = document.getElementById('band2');
+const axis = document.getElementById('scrub-axis');
+
+// Build hour scale: tick every hour, labelled every 3h.
+for (let h = 0; h <= 24; h++) {
+  const pct = (h / 24) * 100;
+  const tick = document.createElement('div');
+  tick.className = 'scrub-tick ' + (h % 3 === 0 ? 'major' : 'minor');
+  tick.style.left = pct + '%';
+  axis.appendChild(tick);
+  if (h % 3 === 0) {
+    const lbl = document.createElement('div');
+    lbl.className = 'scrub-label';
+    lbl.style.left = pct + '%';
+    lbl.textContent = String(h).padStart(2, '0') + ':00';
+    axis.appendChild(lbl);
+  }
+}
 
 function fmtTod(secs) {
   secs = ((secs % 86400) + 86400) % 86400;
@@ -140,6 +247,21 @@ function update() {
   countLabel.textContent = visible.length;
   currentLabel.textContent =
     `Window ${fmtTod(start)} – ${fmtTod(start + win)}  (any date)`;
+
+  // Draw window band(s) on the scrubber track, handling midnight wrap.
+  const startPct = (start / 86400) * 100;
+  const endPct = ((start + win) / 86400) * 100;
+  if (endPct <= 100) {
+    band1.style.left = startPct + '%';
+    band1.style.width = (endPct - startPct) + '%';
+    band2.style.display = 'none';
+  } else {
+    band1.style.left = startPct + '%';
+    band1.style.width = (100 - startPct) + '%';
+    band2.style.display = 'block';
+    band2.style.left = '0%';
+    band2.style.width = (endPct - 100) + '%';
+  }
 }
 
 slider.addEventListener('input', update);
