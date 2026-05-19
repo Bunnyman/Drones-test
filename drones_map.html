@@ -8,9 +8,9 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <style>
   html, body { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  #map { position: absolute; top: 0; bottom: 140px; left: 0; right: 0; }
+  #map { position: absolute; top: 0; bottom: 200px; left: 0; right: 0; }
   #panel {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 140px;
+    position: absolute; bottom: 0; left: 0; right: 0; height: 200px;
     background: #1e1e1e; color: #eee; padding: 10px 16px; box-sizing: border-box;
     display: flex; flex-direction: column; gap: 4px; z-index: 1000;
     box-shadow: 0 -2px 8px rgba(0,0,0,.4);
@@ -23,75 +23,84 @@
   button:hover { background: #5fb; }
   #current { font-weight: 600; min-width: 220px; }
   #count { color: #5fb; font-weight: 600; }
+  #peak { color: #aaa; font-size: 12px; margin-left: auto; }
   select { background: #333; color: #eee; border: 1px solid #555; padding: 4px; border-radius: 3px; }
   label { font-size: 12px; opacity: .8; }
 
   /* --- scrubber --- */
+  /* Layout (y, top-aligned):
+       0..60   histogram canvas
+      60..72   slider track (12 px)
+      55..77   slider thumb (22 px, vertically centred on track)
+      78..100  axis ticks + hour labels
+     The window band is overlaid on top, spanning histogram + track. */
   #scrub {
     position: relative;
-    height: 70px;
+    height: 105px;
     margin-top: 4px;
   }
-  /* Track is inset by half the thumb width (7px) so its 0–100 % range
-     matches the actual travel of the slider thumb. */
+  #hist {
+    position: absolute;
+    top: 0; left: 7px;
+    width: calc(100% - 14px);
+    height: 60px;
+    background: #181818;
+    border-radius: 4px 4px 0 0;
+    display: block;
+  }
   #scrub-track {
     position: absolute;
-    top: 22px; left: 7px; right: 7px;
-    height: 14px;
-    background: #222;
-    border-radius: 7px;
+    top: 60px; left: 7px;
+    width: calc(100% - 14px);
+    height: 12px;
+    background: #333;
+    border-radius: 0 0 4px 4px;
     overflow: hidden;
-  }
-  #heat {
-    position: absolute;
-    inset: 0;
-    width: 100%; height: 100%;
-    image-rendering: pixelated;
   }
   .scrub-band {
     position: absolute;
-    top: 0; bottom: 0;
-    background: rgba(255, 255, 255, 0.18);
+    top: 0;
+    height: 72px;            /* hist (60) + track (12) */
+    background: rgba(255, 255, 255, 0.10);
     border-left: 2px solid #fff;
     border-right: 2px solid #fff;
     box-sizing: border-box;
-    box-shadow: 0 0 0 1px rgba(0,0,0,.4) inset;
+    pointer-events: none;
   }
   #slider {
     position: absolute;
-    top: 16px; left: 0; right: 0;
+    top: 55px; left: 0; right: 0;
     width: 100%;
     margin: 0;
     -webkit-appearance: none;
     appearance: none;
     background: transparent;
-    height: 24px;
+    height: 22px;
   }
   #slider::-webkit-slider-runnable-track {
     background: transparent;
-    height: 24px;
+    height: 22px;
     border: 0;
   }
   #slider::-moz-range-track {
     background: transparent;
-    height: 24px;
+    height: 22px;
     border: 0;
   }
   #slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: 14px;
-    height: 26px;
+    height: 22px;
     background: #fff;
     border: 1px solid #000;
     border-radius: 3px;
     cursor: pointer;
-    margin-top: -1px;
     box-shadow: 0 0 4px rgba(0,0,0,.6);
   }
   #slider::-moz-range-thumb {
     width: 14px;
-    height: 26px;
+    height: 22px;
     background: #fff;
     border: 1px solid #000;
     border-radius: 3px;
@@ -100,7 +109,7 @@
   }
   #scrub-axis {
     position: absolute;
-    top: 44px; left: 7px; right: 7px;
+    top: 78px; left: 7px; right: 7px;
     height: 24px;
     pointer-events: none;
   }
@@ -131,7 +140,7 @@
     <span>In window: <span id="count">0</span> /
       <span id="poolCount">1676</span>
       <span id="poolNote">(all 138 days, 2025-10-02 → 2026-05-19)</span></span>
-    <span style="flex:1"></span>
+    <span id="peak">Peak: &mdash;</span>
     <label>Month:
       <select id="monthSel"></select>
     </label>
@@ -145,11 +154,10 @@
     <button id="play">&#9658; Play</button>
   </div>
   <div id="scrub">
-    <div id="scrub-track">
-      <canvas id="heat"></canvas>
-      <div class="scrub-band" id="band1"></div>
-      <div class="scrub-band" id="band2" style="display:none"></div>
-    </div>
+    <canvas id="hist"></canvas>
+    <div id="scrub-track"></div>
+    <div class="scrub-band" id="band1"></div>
+    <div class="scrub-band" id="band2" style="display:none"></div>
     <input id="slider" type="range" min="0" max="86340" value="0" step="60">
     <div id="scrub-axis"></div>
   </div>
@@ -188,7 +196,8 @@ const playBtn = document.getElementById('play');
 const band1 = document.getElementById('band1');
 const band2 = document.getElementById('band2');
 const axis = document.getElementById('scrub-axis');
-const heatCanvas = document.getElementById('heat');
+const histCanvas = document.getElementById('hist');
+const peakLabel = document.getElementById('peak');
 
 // --- Month selector: "All time" plus every YYYY-MM present in data. ---
 const monthSet = new Set(EVENTS.map(e => e.date.slice(0, 7)));
@@ -208,7 +217,7 @@ for (const ym of months) {
 }
 
 let activePool = EVENTS;   // events left after month filter
-let heatBins = [];         // histogram of activePool over 24 h
+let histBins = [];         // histogram of (activePool ∩ viewport) over 24 h
 
 // Build hour scale: tick every hour, labelled every 3h.
 for (let h = 0; h <= 24; h++) {
@@ -233,46 +242,18 @@ function fmtTod(secs) {
   return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
 }
 
-// Map a 0..1 value to a "heat" colour (dark → blue → cyan → yellow → red).
-function heatColor(v) {
-  if (v <= 0) return 'rgba(0,0,0,0)';
-  // Five-stop gradient.
-  const stops = [
-    [0.00, [ 40,  40,  80]],
-    [0.15, [ 30,  90, 180]],
-    [0.40, [ 70, 200, 200]],
-    [0.70, [255, 220,  60]],
-    [1.00, [220,  40,  40]],
-  ];
-  v = Math.max(0, Math.min(1, v));
-  for (let i = 1; i < stops.length; i++) {
-    if (v <= stops[i][0]) {
-      const [a, b] = [stops[i-1], stops[i]];
-      const t = (v - a[0]) / (b[0] - a[0]);
-      const r = Math.round(a[1][0] + t * (b[1][0] - a[1][0]));
-      const g = Math.round(a[1][1] + t * (b[1][1] - a[1][1]));
-      const bl= Math.round(a[1][2] + t * (b[1][2] - a[1][2]));
-      return `rgb(${r},${g},${bl})`;
-    }
-  }
-  return 'rgb(220,40,40)';
-}
+const HIST_BINS = 96;            // 15-minute buckets across 24 h
+const HIST_BIN_SECS = 86400 / HIST_BINS;
 
-const HEAT_BINS = 288;          // 5-minute buckets across 24 h
-const HEAT_BIN_SECS = 86400 / HEAT_BINS;
-
-function recomputeHeatBins() {
-  // Heatmap reflects only events inside the current map viewport (and the
+function recomputeHistBins() {
+  // Histogram reflects only events inside the current map viewport (and the
   // active month filter). Re-runs on pan/zoom and on month change.
   const bounds = map.getBounds();
-  heatBins = new Array(HEAT_BINS).fill(0);
-  let visibleInPool = 0;
+  histBins = new Array(HIST_BINS).fill(0);
   for (const e of activePool) {
     if (!bounds.contains([e.lat, e.lon])) continue;
-    heatBins[Math.min(HEAT_BINS - 1, Math.floor(e.tod / HEAT_BIN_SECS))]++;
-    visibleInPool++;
+    histBins[Math.min(HIST_BINS - 1, Math.floor(e.tod / HIST_BIN_SECS))]++;
   }
-  return visibleInPool;
 }
 
 function rebuildPool() {
@@ -285,30 +266,58 @@ function rebuildPool() {
   } else {
     poolNote.textContent = `(all 138 days, 2025-10-02 → 2026-05-19)`;
   }
-  recomputeHeatBins();
-  drawHeatmap();
+  recomputeHistBins();
+  drawHistogram();
 }
 
-function drawHeatmap() {
-  // Match the CSS pixel size of the track so 1 bin = 1 px column scaled.
-  const cssW = heatCanvas.clientWidth || heatCanvas.parentElement.clientWidth;
-  const cssH = heatCanvas.clientHeight || heatCanvas.parentElement.clientHeight;
+function drawHistogram() {
+  const cssW = histCanvas.clientWidth;
+  const cssH = histCanvas.clientHeight;
   const dpr = window.devicePixelRatio || 1;
-  heatCanvas.width  = Math.max(1, Math.round(cssW * dpr));
-  heatCanvas.height = Math.max(1, Math.round(cssH * dpr));
-  const ctx = heatCanvas.getContext('2d');
-  ctx.clearRect(0, 0, heatCanvas.width, heatCanvas.height);
+  histCanvas.width  = Math.max(1, Math.round(cssW * dpr));
+  histCanvas.height = Math.max(1, Math.round(cssH * dpr));
+  const ctx = histCanvas.getContext('2d');
+  ctx.clearRect(0, 0, histCanvas.width, histCanvas.height);
 
-  const max = Math.max(1, ...heatBins);
-  // Use sqrt scaling so quiet hours stay visible without saturating peaks.
-  const norm = (n) => Math.sqrt(n / max);
-  const W = heatCanvas.width;
-  const H = heatCanvas.height;
-  for (let i = 0; i < HEAT_BINS; i++) {
-    const x0 = Math.floor((i     / HEAT_BINS) * W);
-    const x1 = Math.floor(((i+1) / HEAT_BINS) * W);
-    ctx.fillStyle = heatColor(norm(heatBins[i]));
-    ctx.fillRect(x0, 0, x1 - x0, H);
+  const max = Math.max(1, ...histBins);
+  const W = histCanvas.width;
+  const H = histCanvas.height;
+  const padTop = 4 * dpr;
+  const innerH = H - padTop;
+
+  // Faint horizontal grid lines at 25/50/75/100 % of max.
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let g = 1; g <= 4; g++) {
+    const y = Math.round(padTop + innerH - (g / 4) * innerH) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Bars.
+  let peakBin = -1, peakCount = 0;
+  for (let i = 0; i < HIST_BINS; i++) {
+    if (histBins[i] > peakCount) { peakCount = histBins[i]; peakBin = i; }
+    const v = histBins[i] / max;
+    if (v <= 0) continue;
+    const x0 = Math.floor((i     / HIST_BINS) * W);
+    const x1 = Math.floor(((i+1) / HIST_BINS) * W);
+    const w  = Math.max(1, x1 - x0 - 1);
+    const barH = Math.max(1, Math.round(v * innerH));
+    const y    = padTop + innerH - barH;
+    // Solid cyan bars; brighter when taller.
+    const alpha = 0.55 + 0.45 * v;
+    ctx.fillStyle = `rgba(95, 200, 255, ${alpha})`;
+    ctx.fillRect(x0, y, w, barH);
+  }
+
+  if (peakCount > 0) {
+    const peakStart = peakBin * HIST_BIN_SECS;
+    peakLabel.textContent =
+      `Peak: ${fmtTod(peakStart)}–${fmtTod(peakStart + HIST_BIN_SECS)} ` +
+      `(${peakCount} event${peakCount===1?'':'s'})`;
+  } else {
+    peakLabel.textContent = 'Peak: — (no events in view)';
   }
 }
 
@@ -382,8 +391,8 @@ function update() {
 slider.addEventListener('input', update);
 windowSel.addEventListener('change', update);
 monthSel.addEventListener('change', () => { rebuildPool(); update(); });
-window.addEventListener('resize', drawHeatmap);
-map.on('moveend zoomend', () => { recomputeHeatBins(); drawHeatmap(); });
+window.addEventListener('resize', drawHistogram);
+map.on('moveend zoomend', () => { recomputeHistBins(); drawHistogram(); });
 
 let playing = false;
 let timer = null;
