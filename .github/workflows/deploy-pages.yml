@@ -1,0 +1,37 @@
+name: Deploy drones map to GitHub Pages
+
+on:
+  push:
+    branches:
+      - claude/drone-map-time-scrubber-f44Pd
+    paths:
+      - drones_map.html
+      - .github/workflows/deploy-pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          mkdir _site
+          cp drones_map.html _site/index.html
+          touch _site/.nojekyll
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          publish_branch: gh-pages
+          force_orphan: true
