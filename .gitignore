@@ -1,0 +1,6 @@
+# runtime artifacts / local data — not source
+incoming/
+processed/
+*.db
+__pycache__/
+*.pyc

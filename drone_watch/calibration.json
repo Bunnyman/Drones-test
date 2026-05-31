@@ -1,0 +1,12 @@
+{
+  "_comment": "Control points map pixel (x,y) -> [lon, lat] for the SPECIFIC map source, crop and zoom level you screenshot. The values below were eyeballed from one example image (Kupiansk-Lyman sector) and are only accurate to a few km. RECALIBRATE for your own setup: open a representative screenshot, read the exact pixel position of several labelled towns, and put the real coordinates here. Run `python -m drone_watch.calibrate_check` to see the residual error.",
+  "control_points": [
+    {"name": "Izium",            "pixel": [425, 762],  "lonlat": [37.2483, 49.2106]},
+    {"name": "Borova",           "pixel": [790, 472],  "lonlat": [37.6092, 49.3783]},
+    {"name": "Lyman",            "pixel": [1043, 1092], "lonlat": [37.8027, 48.9881]},
+    {"name": "Sloviansk",        "pixel": [793, 1318], "lonlat": [37.6056, 48.8531]},
+    {"name": "Sviatohirsk",      "pixel": [748, 1003], "lonlat": [37.5644, 49.0306]},
+    {"name": "Kupiansk-Vuzlovyi","pixel": [845, 16],   "lonlat": [37.6517, 49.7881]},
+    {"name": "Barvinkove",       "pixel": [95, 1245],  "lonlat": [36.9856, 48.9008]}
+  ]
+}
