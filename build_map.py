@@ -391,6 +391,14 @@ HTML_TEMPLATE = """<!doctype html>
       </div>
       <div class="hint">ПЕРЕТЯГНІТЬ ПОВЗУНОК · ПРОБІЛ — ВІДТВОРЕННЯ · ← →  КРОК</div>
     </div>
+    <div id="scrub">
+      <canvas id="hist"></canvas>
+      <div id="scrub-track"></div>
+      <div class="scrub-band" id="band1"></div>
+      <div class="scrub-band" id="band2" style="display:none"></div>
+      <input id="slider" type="range" min="0" max="86340" value="43200" step="60">
+      <div id="scrub-axis"></div>
+    </div>
     <div class="bottombar">
       <div class="filter-bar">
         <span class="filter-lbl">ТИП</span>
@@ -412,14 +420,6 @@ HTML_TEMPLATE = """<!doctype html>
         </div>
         <button class="ghost-btn" id="resetBtn">12:00</button>
       </div>
-    </div>
-    <div id="scrub">
-      <canvas id="hist"></canvas>
-      <div id="scrub-track"></div>
-      <div class="scrub-band" id="band1"></div>
-      <div class="scrub-band" id="band2" style="display:none"></div>
-      <input id="slider" type="range" min="0" max="86340" value="43200" step="60">
-      <div id="scrub-axis"></div>
     </div>
   </div>
 </div>
