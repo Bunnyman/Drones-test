@@ -215,69 +215,78 @@
     transform: translateX(-50%); white-space: nowrap;
   }
 
-  /* Controls row */
-  .controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  /* Single compact row: filters on the left, time controls on the right. */
+  .bottombar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    font-family: var(--font-mono);
+  }
+  .filters-left, .time-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .filters-left { flex: 1 1 auto; min-width: 0; }
+  .time-right   { flex: 0 0 auto; margin-left: auto; }
+
   .play {
-    display: inline-flex; align-items: center; gap: 11px;
-    font-family: var(--font-display); font-weight: 700; font-size: 13px;
-    letter-spacing: 0.14em; padding: 11px 22px;
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--font-mono); font-weight: 600; font-size: 11px;
+    letter-spacing: 0.12em; padding: 5px 12px;
     background: var(--accent); color: #1a0f06; border: 0; cursor: pointer; transition: background 120ms;
   }
   .play:hover { background: #ff9d5a; }
-  .play .icon { font-size: 11px; }
-  .ctrl-label { font-family: var(--font-mono); font-size: 10.5px; color: var(--dimmer); letter-spacing: 0.14em; }
-  .win-seg { display: flex; gap: 6px; }
+  .play .icon { font-size: 9px; }
+  .ctrl-label { font-size: 9.5px; color: var(--dimmer); letter-spacing: 0.16em; }
+  .win-seg { display: flex; gap: 4px; }
   .win-seg button {
-    font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: 0.1em;
-    padding: 10px 16px; border: 1px solid var(--line); background: rgba(255,255,255,0.03);
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
+    padding: 5px 10px; border: 1px solid var(--line); background: rgba(255,255,255,0.03);
     color: var(--dim); cursor: pointer; transition: all 120ms;
   }
   .win-seg button:hover { color: var(--ink); }
   .win-seg button.is-active { background: rgba(255,139,61,0.14); border-color: var(--accent); color: var(--accent); }
   .ghost-btn {
-    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
     background: transparent; border: 1px solid var(--line); color: var(--dim);
-    padding: 10px 14px; cursor: pointer; transition: all 120ms;
+    padding: 5px 9px; cursor: pointer; transition: all 120ms;
   }
   .ghost-btn:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
+
   #areaStatus {
     display: none;
-    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em;
-    padding: 9px 12px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+    padding: 4px 8px;
     border: 1px solid var(--accent);
     background: var(--accent-soft);
     color: var(--accent);
   }
-  #areaStatus.active { display: inline-flex; align-items: center; gap: 10px; }
+  #areaStatus.active { display: inline-flex; align-items: center; gap: 8px; }
   #areaStatus a { color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 
-  .readout { margin-left: auto; text-align: right; }
-  .readout .range { font-family: var(--font-mono); font-size: 15px; color: var(--ink); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
-  .readout .speed { font-family: var(--font-mono); font-size: 10px; color: var(--dimmer); letter-spacing: 0.12em; margin-top: 4px; }
+  .readout-inline {
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--ink);
+    letter-spacing: 0.06em; font-variant-numeric: tabular-nums;
+    padding: 0 4px;
+  }
 
-  /* Filter pill rows */
-  .filter-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  /* Filter pill rows — compact */
   .filter-group {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 6px 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 8px;
     border: 1px solid var(--line);
     background: rgba(255,255,255,0.02);
   }
   .filter-group > .lbl {
-    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.18em;
+    font-size: 9.5px; letter-spacing: 0.16em;
     color: var(--dimmer); text-transform: uppercase;
   }
   .pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 5px 10px;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 7px;
     border: 1px solid var(--line);
-    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
     cursor: pointer; user-select: none;
     background: transparent; color: var(--dim);
     transition: all 120ms;
   }
   .pill .swatch {
-    display: inline-block; width: 9px; height: 9px;
+    display: inline-block; width: 8px; height: 8px;
     background: var(--col, var(--dimmer));
     box-shadow: 0 0 0 1px rgba(255,255,255,0.12);
   }
@@ -352,31 +361,30 @@
       <input id="slider" type="range" min="0" max="86340" value="0" step="60">
       <div id="scrub-axis"></div>
     </div>
-    <div class="controls">
-      <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
-      <span class="ctrl-label">ВІКНО</span>
-      <div class="win-seg" id="winSeg">
-        <button data-win="1800">30 ХВ</button>
-        <button data-win="3600" class="is-active">1 ГОД</button>
-        <button data-win="7200">2 ГОД</button>
+    <div class="bottombar">
+      <div class="filters-left">
+        <span class="filter-group">
+          <span class="lbl">ТИП</span>
+          <span id="typeFilters"></span>
+        </span>
+        <span class="filter-group">
+          <span class="lbl">ТЕГИ</span>
+          <span id="tagFilters"></span>
+        </span>
+        <span id="areaStatus">&#9633; ОБЛАСТЬ
+          <a id="clearArea">скинути</a></span>
       </div>
-      <button class="ghost-btn" id="resetBtn">00:00</button>
-      <span id="areaStatus">&#9633; ОБЛАСТЬ ВИЗНАЧЕНА
-        <a id="clearArea">скинути</a></span>
-      <div class="readout">
-        <div class="range" id="winRange">&mdash;</div>
-        <div class="speed">ДОБА ЗА ~19 С</div>
+      <div class="time-right">
+        <span class="readout-inline" id="winRange">&mdash;</span>
+        <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
+        <span class="ctrl-label">ВІКНО</span>
+        <div class="win-seg" id="winSeg">
+          <button data-win="1800">30 ХВ</button>
+          <button data-win="3600" class="is-active">1 ГОД</button>
+          <button data-win="7200">2 ГОД</button>
+        </div>
+        <button class="ghost-btn" id="resetBtn">00:00</button>
       </div>
-    </div>
-    <div class="filter-row">
-      <span class="filter-group">
-        <span class="lbl">ТИП ЦІЛІ</span>
-        <span id="typeFilters"></span>
-      </span>
-      <span class="filter-group">
-        <span class="lbl">ТЕГИ</span>
-        <span id="tagFilters"></span>
-      </span>
     </div>
   </div>
 </div>
