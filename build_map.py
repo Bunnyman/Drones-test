@@ -399,7 +399,7 @@ HTML_TEMPLATE = """<!doctype html>
       <div class="hr"></div>
       <div class="mini"><span class="mk">ПІК ЗА ДОБОЮ</span><span class="mv peak" id="hudPeak">0</span></div>
       <div class="mini"><span class="mk">ПІК О</span><span class="mv" id="hudPeakTime">&mdash;</span></div>
-      <div class="mini"><span class="mk">ОБЛАСТЬ</span><span class="mv area" id="hudArea">ВИДИМА ЗОНА</span></div>
+      <div class="mini"><span class="mk">ОБЛАСТЬ</span><span class="mv area" id="hudArea">ВСІ ТОЧКИ</span></div>
     </div>
 
     <div class="legend" id="typeLegend">
@@ -525,7 +525,7 @@ function refreshSelectionFromLayers() {
   }
   document.getElementById('areaStatus').classList.toggle('active', !!selectionPolygon);
   const hudArea = document.getElementById('hudArea');
-  hudArea.textContent = selectionPolygon ? 'ВЛАСНА ОБЛАСТЬ' : 'ВИДИМА ЗОНА';
+  hudArea.textContent = selectionPolygon ? 'ВЛАСНА ОБЛАСТЬ' : 'ВСІ ТОЧКИ';
   recomputeHistBins();
   drawHistogram();
   update();
@@ -708,10 +708,10 @@ const HIST_BINS = 96;            // 15-minute buckets across 24 h
 const HIST_BIN_SECS = 86400 / HIST_BINS;
 
 function inAreaFilter(e) {
-  // When a selection polygon exists, the stats use it. Otherwise we
-  // fall back to the current map viewport so things still make sense.
-  if (selectionPolygon) return pointInPolygon(e.lat, e.lon, selectionPolygon);
-  return map.getBounds().contains([e.lat, e.lon]);
+  // Stats are constrained only by the user-drawn shape. When nothing is
+  // drawn there's no spatial filter — the entire activePool counts.
+  if (!selectionPolygon) return true;
+  return pointInPolygon(e.lat, e.lon, selectionPolygon);
 }
 
 function recomputeHistBins() {
@@ -905,7 +905,6 @@ function update() {
 slider.addEventListener('input', update);
 monthSel.addEventListener('change', () => { rebuildPool(); update(); });
 window.addEventListener('resize', () => { drawHistogram(); update(); });
-map.on('moveend zoomend', () => { recomputeHistBins(); drawHistogram(); update(); });
 
 let playing = false;
 let timer = null;
