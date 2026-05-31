@@ -72,10 +72,18 @@ Badge tuning keys: `badge_dark_max`, `badge_min_area`, `badge_max_area`,
 ## Example: the ГРАФІТ map source
 
 `calibration_graphite_827x880.json` is a ready calibration for that app's fixed
-827×880 view (Izium–Lyman sector, Web Mercator). Affine-fit residuals are
-~0.5–1.3 km; accuracy is softer east of Lyman where control coverage is thin
-(treat eastern dots as ±1–3 km). Point `config.json` `calibration` at it and set
-`marker_style: "badge"`.
+827×880 view (Izium–Lyman sector). It uses **`projection: "mercator"`** with
+control points taken from the map's own **10-arcminute graticule** — exact
+coordinates at sub-pixel grid-line positions, covering the whole frame including
+east of Lyman. The transform is geometrically exact to the grid; independent
+town-label checks land ~250 m for well-placed labels (larger deltas just reflect
+the offset between a town's label and its actual point). Point `config.json`
+`calibration` at it and set `marker_style: "badge"`.
+
+> Tip for recalibrating any graticule map: read the grid-line pixel positions
+> (they have no label offset) and label each with its exact lat/long, then use
+> `projection: "mercator"`. This is far more accurate than town labels, whose
+> text is drawn offset from the settlement point.
 
 ## Cron
 

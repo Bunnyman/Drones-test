@@ -52,6 +52,33 @@ def test_db_roundtrip_and_dedup():
         assert abs(row["lat"] - 49.64) < 1e-9
 
 
+def test_georef_mercator_mode():
+    # north-up web mercator: lon depends on x, lat on y (via mercator term)
+    pts = [
+        {"name": "a", "pixel": [108.07, 603.0], "lonlat": [37.16667, 49.0]},
+        {"name": "b", "pixel": [779.41, 603.0], "lonlat": [38.0, 49.0]},
+        {"name": "c", "pixel": [108.07, 191.94], "lonlat": [37.16667, 49.33333]},
+    ]
+    geo = Georeferencer(pts, projection="mercator")
+    lon, lat = geo.to_lonlat(779.41, 191.94)
+    assert abs(lon - 38.0) < 1e-6
+    assert abs(lat - 49.33333) < 1e-3
+    # monotonic: larger x => larger lon; larger y => smaller lat
+    assert geo.to_lonlat(400, 300)[0] > geo.to_lonlat(200, 300)[0]
+    assert geo.to_lonlat(300, 500)[1] < geo.to_lonlat(300, 200)[1]
+
+
+def test_calibration_file_loads():
+    import os
+    cal = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                       "calibration_graphite_827x880.json")
+    geo = Georeferencer.from_file(cal)
+    assert geo.projection == "mercator"
+    # a known interior pixel resolves to the Izium-Lyman sector
+    lon, lat = geo.to_lonlat(413, 440)
+    assert 37.0 < lon < 38.2 and 48.7 < lat < 49.6
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
