@@ -1,64 +1,62 @@
 #!/usr/bin/env python3
-"""Convert the drone events CSV into an interactive HTML map with a 1-hour time scrubber."""
+"""Convert the drone-track endpoints CSV into an interactive HTML map with a 1-hour time scrubber.
+
+The script targets the schema produced by trackendpoints exports (UTF-8 BOM,
+Ukrainian headers): each row is one track and we keep its LAST observed
+position (`Час останньої фіксації` + `Координати останньої точки`).
+"""
 
 import csv
 import json
-import re
 import sys
 from datetime import datetime
 from pathlib import Path
 
-import mgrs
 
-CSV_PATH = Path("/root/.claude/uploads/a6225105-8a3e-41a6-b9c3-249c809118bc/2bd6693e-events.csv")
+CSV_PATH = Path("/root/.claude/uploads/5554a83c-6e5b-498c-9c56-2ea45dff2711/814c6f5c-trackendpoints0105202601062026.csv")
 OUT_PATH = Path(__file__).parent / "drones_map.html"
 
-MGRS_RE = re.compile(r"(\d{1,2}[A-Z])\s*([A-Z]{2})\s*(\d{5})\s*(\d{5})")
+COL_TIME    = "Час останньої фіксації"
+COL_COORDS  = "Координати останньої точки"
+COL_PLACE   = "Найближчий населений пункт"
+COL_NAME    = "Назва цілі"
+COL_TYPE    = "Тип цілі"
+COL_COMMENT = "Коментар"
 
 
 def parse_rows():
-    converter = mgrs.MGRS()
     events = []
     skipped = 0
-    with CSV_PATH.open() as f:
+    with CSV_PATH.open(encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
-            lat_raw = (row.get("lat") or "").strip()
-            lon_raw = (row.get("lon") or "").strip()
-            mgrs_str = ""
-            m = MGRS_RE.search(row.get("mgrs") or "")
-            if m:
-                mgrs_str = f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}"
-
-            if lat_raw and lon_raw:
-                try:
-                    lat = float(lat_raw)
-                    lon = float(lon_raw)
-                except ValueError:
-                    skipped += 1
-                    continue
-            elif mgrs_str:
-                try:
-                    lat, lon = converter.toLatLon(mgrs_str)
-                except Exception:
-                    skipped += 1
-                    continue
-            else:
+            tstr = (row.get(COL_TIME) or "").strip()
+            coords = (row.get(COL_COORDS) or "").strip()
+            if not tstr or not coords:
                 skipped += 1
                 continue
             try:
-                ts = datetime.fromisoformat(f"{row['date']}T{row['time']}")
+                ts = datetime.strptime(tstr, "%H:%M:%S %d.%m.%Y")
             except ValueError:
+                skipped += 1
+                continue
+            try:
+                lat_str, lon_str = coords.split(",", 1)
+                lat = float(lat_str.strip())
+                lon = float(lon_str.strip())
+            except (ValueError, IndexError):
                 skipped += 1
                 continue
             tod = ts.hour * 3600 + ts.minute * 60 + ts.second
             events.append({
                 "tod": tod,
-                "date": row["date"],
-                "time": row["time"],
+                "date": ts.strftime("%Y-%m-%d"),
+                "time": ts.strftime("%H:%M:%S"),
                 "lat": round(lat, 6),
                 "lon": round(lon, 6),
-                "mgrs": mgrs_str,
-                "comment": (row.get("comment") or "").strip(),
+                "name": (row.get(COL_NAME) or "").strip(),
+                "type": (row.get(COL_TYPE) or "").strip(),
+                "place": (row.get(COL_PLACE) or "").strip(),
+                "comment": (row.get(COL_COMMENT) or "").strip(),
             })
     events.sort(key=lambda e: e["tod"])
     print(f"Parsed {len(events)} events (skipped {skipped})", file=sys.stderr)
@@ -423,12 +421,14 @@ function update() {
     });
     const sorted = list.slice().sort((a, b) =>
       a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date));
-    const lines = sorted.map(e =>
-      `<div>${e.date} ${e.time}${e.comment ? ' &mdash; ' + e.comment.replace(/</g,'&lt;') : ''}</div>`
-    );
+    const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const lines = sorted.map(e => {
+      const meta = [e.name, e.type, e.comment].filter(s => s).join(' · ');
+      return `<div><b>${e.date} ${e.time}</b>${meta ? ' &mdash; ' + esc(meta) : ''}</div>`;
+    });
     marker.bindPopup(
       `<b>${n} event${n>1?'s':''} at this spot</b><br>` +
-      `MGRS: ${first.mgrs}<br>` +
+      (first.place ? esc(first.place) + '<br>' : '') +
       `${first.lat.toFixed(5)}, ${first.lon.toFixed(5)}<hr style="margin:4px 0">` +
       `<div style="max-height:200px;overflow:auto;font-size:12px">${lines.join('')}</div>`
     );
