@@ -260,8 +260,9 @@ HTML_TEMPLATE = """<!doctype html>
   .play {
     display: inline-flex; align-items: center; gap: 7px;
     font-family: var(--font-mono); font-weight: 600; font-size: 11px;
-    letter-spacing: 0.12em; padding: 5px 12px;
-    background: var(--accent); color: #1a0f06; border: 0; cursor: pointer; transition: background 120ms;
+    letter-spacing: 0.12em; padding: 5px 14px;
+    background: var(--accent); color: #1a0f06; border: 0; border-radius: 999px;
+    cursor: pointer; transition: background 120ms;
   }
   .play:hover { background: #ff9d5a; }
   .play .icon { font-size: 9px; }
@@ -269,15 +270,17 @@ HTML_TEMPLATE = """<!doctype html>
   .win-seg { display: flex; gap: 4px; }
   .win-seg button {
     font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
-    padding: 5px 10px; border: 1px solid var(--line); background: rgba(255,255,255,0.03);
+    padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px;
+    background: rgba(255,255,255,0.03);
     color: var(--dim); cursor: pointer; transition: all 120ms;
   }
   .win-seg button:hover { color: var(--ink); }
   .win-seg button.is-active { background: rgba(255,139,61,0.14); border-color: var(--accent); color: var(--accent); }
   .ghost-btn {
     font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
-    background: transparent; border: 1px solid var(--line); color: var(--dim);
-    padding: 5px 9px; cursor: pointer; transition: all 120ms;
+    background: transparent; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--dim);
+    padding: 5px 11px; cursor: pointer; transition: all 120ms;
   }
   .ghost-btn:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
 
