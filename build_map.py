@@ -104,42 +104,18 @@ HTML_TEMPLATE = """<!doctype html>
   }
   .stage { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; }
 
-  /* ── Header strip ─────────────────────────────────────── */
-  .topbar {
-    height: 60px; flex: none;
-    padding: 0 clamp(16px, 2.4vw, 36px);
-    display: flex; align-items: center; gap: 28px;
-    border-bottom: 1px solid var(--line);
-    background: #000; z-index: 600;
-  }
-  .brand { display: flex; align-items: center; gap: 10px; flex: none; }
-  .brand-glyph {
-    position: relative; width: 30px; height: 26px;
-    border: 1.5px solid var(--ink); display: grid; place-items: center;
-    clip-path: polygon(0 0, 100% 0, 100% 70%, 78% 100%, 0 100%);
-  }
-  .brand-glyph span {
-    font-family: 'Space Grotesk', sans-serif; font-weight: 800;
-    font-size: 12px; letter-spacing: 0.04em; line-height: 1; margin-left: -2px;
-  }
-  .brand-name {
-    font-family: 'Space Grotesk', sans-serif; font-size: 10.5px; font-weight: 600;
-    letter-spacing: 0.22em; line-height: 1.2;
-  }
-  .status { display: flex; align-items: center; gap: 28px; flex: 1; min-width: 0; overflow: hidden; }
-  .stat-item { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
-  .stat-item .k { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.16em; color: var(--dim); }
-  .stat-item .v { font-family: var(--font-mono); font-size: 14px; letter-spacing: 0.04em; color: var(--ink); font-variant-numeric: tabular-nums; }
-  .stat-item .v.accent { color: var(--accent); font-weight: 600; }
-  .stat-item .v.peak { color: var(--accent-2); }
-  .divider { width: 1px; height: 22px; background: var(--line); }
-  .clock { font-family: var(--font-mono); font-size: 12px; color: var(--dimmer); letter-spacing: 0.12em; flex: none; }
+  /* Month selector inline next to the timeline title */
   .topbar-select {
-    font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.04em;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
     background: transparent; color: var(--ink); border: 1px solid var(--line);
-    padding: 4px 8px; cursor: pointer;
+    padding: 3px 6px; cursor: pointer;
   }
   .topbar-select option { background: #111; color: var(--ink); }
+  .clock-inline {
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--dimmer); letter-spacing: 0.12em;
+  }
+  .title-row { display: flex; align-items: center; gap: 14px; }
 
   /* ── Map area ─────────────────────────────────────────── */
   .mapwrap { position: relative; flex: 1; min-height: 0; }
@@ -188,18 +164,6 @@ HTML_TEMPLATE = """<!doctype html>
   .hud .mini .mv { font-family: var(--font-mono); font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
   .hud .mini .mv.peak { color: var(--accent-2); }
   .hud .mini .mv.area { color: var(--accent); }
-
-  /* Legend (top-right) — uses type colours */
-  .legend {
-    position: absolute; top: 18px; right: 18px; z-index: 500;
-    background: rgba(0,0,0,0.72); border: 1px solid var(--line);
-    padding: 12px 16px; font-family: var(--font-mono); font-size: 10.5px;
-    letter-spacing: 0.1em; color: var(--dim); display: flex; flex-direction: column; gap: 8px;
-    min-width: 130px;
-  }
-  .legend .head { font-size: 9.5px; letter-spacing: 0.18em; color: var(--dimmer); margin-bottom: 2px; }
-  .legend .li { display: flex; align-items: center; gap: 9px; }
-  .legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 
   /* ── Scrubber bar ─────────────────────────────────────── */
   .scrubber {
@@ -371,32 +335,6 @@ HTML_TEMPLATE = """<!doctype html>
 </head>
 <body>
 <div class="stage">
-  <!-- Header -->
-  <div class="topbar">
-    <div class="brand">
-      <div class="brand-glyph"><span>EW</span></div>
-      <div class="brand-name">DRONE<br/>TIMELINE</div>
-    </div>
-    <div class="status">
-      <div class="stat-item">
-        <span class="k">У ВІКНІ</span>
-        <span class="v accent" id="inWindow">0</span>
-        <span class="v" style="color:var(--dimmer)">/ <span id="totalEvents">__TOTAL__</span></span>
-      </div>
-      <div class="divider"></div>
-      <div class="stat-item">
-        <span class="k">ПІК</span>
-        <span class="v peak" id="peakVal">&mdash;</span>
-      </div>
-      <div class="divider"></div>
-      <div class="stat-item">
-        <span class="k">МІСЯЦЬ</span>
-        <select class="topbar-select" id="monthSel"></select>
-      </div>
-    </div>
-    <div class="clock" id="clock">__DAYS__ ДНІВ · __DATE_RANGE__</div>
-  </div>
-
   <!-- Map -->
   <div class="mapwrap">
     <div id="map"></div>
@@ -410,16 +348,16 @@ HTML_TEMPLATE = """<!doctype html>
       <div class="mini"><span class="mk">ПІК О</span><span class="mv" id="hudPeakTime">&mdash;</span></div>
       <div class="mini"><span class="mk">ОБЛАСТЬ</span><span class="mv area" id="hudArea">ВСІ ТОЧКИ</span></div>
     </div>
-
-    <div class="legend" id="typeLegend">
-      <div class="head">ТИП ЦІЛІ</div>
-    </div>
   </div>
 
   <!-- Scrubber -->
   <div class="scrubber">
     <div class="track-head">
-      <div class="month" id="scrubTitle">ХРОНОЛОГІЯ ДОБИ · 00:00 — 24:00</div>
+      <div class="title-row">
+        <div class="month" id="scrubTitle">ХРОНОЛОГІЯ ПОДІЙ</div>
+        <select class="topbar-select" id="monthSel"></select>
+        <span class="clock-inline" id="clock">__DAYS__ ДНІВ · __DATE_RANGE__</span>
+      </div>
       <div class="hint">ПЕРЕТЯГНІТЬ ПОВЗУНОК · ПРОБІЛ — ВІДТВОРЕННЯ · ← →  КРОК</div>
     </div>
     <div id="scrub">
@@ -614,23 +552,6 @@ buildPillRow(
   () => { rebuildPool(); update(); }
 );
 
-// --- legend (top-right) ---
-(function buildLegend() {
-  const host = document.getElementById('typeLegend');
-  for (const t of allTypes) {
-    const row = document.createElement('div');
-    row.className = 'li';
-    const dot = document.createElement('span');
-    dot.className = 'dot';
-    dot.style.background = typeColor(t);
-    row.appendChild(dot);
-    const lbl = document.createElement('span');
-    lbl.textContent = (t === '' ? 'НЕ ВИЗНАЧЕНО' : t.toUpperCase());
-    row.appendChild(lbl);
-    host.appendChild(row);
-  }
-})();
-
 const slider = document.getElementById('slider');
 const monthSel = document.getElementById('monthSel');
 const playBtn = document.getElementById('play');
@@ -642,13 +563,10 @@ const axis = document.getElementById('scrub-axis');
 const histCanvas = document.getElementById('hist');
 const winSeg = document.getElementById('winSeg');
 
-// All stat outputs (some appear in topbar, HUD and readout).
-const elInWindow   = document.getElementById('inWindow');
-const elTotal      = document.getElementById('totalEvents');
+// Stat outputs that still exist (HUD + readout + inline clock).
 const elHudBig     = document.getElementById('hudBig');
 const elHudPool    = document.getElementById('hudPool');
 const elHudPct     = document.getElementById('hudPct');
-const elPeakVal    = document.getElementById('peakVal');
 const elHudPeak    = document.getElementById('hudPeak');
 const elHudPeakTime= document.getElementById('hudPeakTime');
 const elWinRange   = document.getElementById('winRange');
@@ -742,7 +660,6 @@ function rebuildPool() {
   const base = ym ? EVENTS.filter(e => e.date.startsWith(ym)) : EVENTS;
   activePool = base.filter(eventPassesFilters);
   const poolN = activePool.length;
-  elTotal.textContent  = poolN.toLocaleString('uk-UA');
   elHudPool.textContent = poolN.toLocaleString('uk-UA');
   const ymDays = new Set(activePool.map(e => e.date)).size;
   elClock.textContent = ym
@@ -814,11 +731,9 @@ function drawHistogram() {
     ctx.beginPath(); ctx.moveTo(pcx, padTop); ctx.lineTo(pcx, H); ctx.stroke();
     ctx.setLineDash([]);
 
-    elPeakVal.textContent = peakCount.toLocaleString('uk-UA');
     elHudPeak.textContent = peakCount.toLocaleString('uk-UA');
     elHudPeakTime.textContent = `${fmtTod(peakStart)}–${fmtTod(peakStart + HIST_BIN_SECS)}`;
   } else {
-    elPeakVal.textContent = '—';
     elHudPeak.textContent = '0';
     elHudPeakTime.textContent = '—';
   }
@@ -883,7 +798,6 @@ function update() {
   let inAreaCount = 0;
   for (const e of visible) { if (inAreaFilter(e)) inAreaCount++; }
   const poolN = activePool.length || 1;
-  elInWindow.textContent = inAreaCount.toLocaleString('uk-UA');
   elHudBig.textContent   = inAreaCount.toLocaleString('uk-UA');
   elHudPct.textContent   = ((inAreaCount / poolN) * 100).toFixed(1) + '%';
   elWinRange.textContent = `${fmtTod(start)} – ${fmtTod(start + win)}`;
