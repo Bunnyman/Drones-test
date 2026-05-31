@@ -426,10 +426,9 @@ HTML_TEMPLATE = """<!doctype html>
     <div class="track-head">
       <div class="title-row">
         <div class="month" id="scrubTitle">ХРОНОЛОГІЯ ПОДІЙ</div>
-        <select class="topbar-select" id="monthSel"></select>
         <span class="clock-inline" id="clock">__DAYS__ ДНІВ · __DATE_RANGE__</span>
       </div>
-      <div class="hint">ПЕРЕТЯГНІТЬ ПОВЗУНОК · ПРОБІЛ — ВІДТВОРЕННЯ · ← →  КРОК</div>
+      <select class="topbar-select" id="monthSel"></select>
     </div>
     <div id="scrub">
       <canvas id="hist"></canvas>
