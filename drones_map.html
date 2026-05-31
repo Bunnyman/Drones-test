@@ -186,12 +186,15 @@
     transform: translateX(-50%); white-space: nowrap;
   }
 
-  /* Two stacked rows: filters on top, time controls below. */
+  /* Single row between title and timeline:
+     filters on the left, time controls on the right. */
   .bottombar {
-    display: flex; flex-direction: column; gap: 8px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
     font-family: var(--font-mono);
   }
-  .filter-bar, .time-bar { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+  .filter-bar, .time-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .filter-bar { flex: 1 1 auto; min-width: 0; }
+  .time-bar   { flex: 0 0 auto; margin-left: auto; }
   .filter-bar .filter-lbl {
     font-size: 9.5px; letter-spacing: 0.16em;
     color: var(--dimmer); text-transform: uppercase;
@@ -304,14 +307,6 @@
       </div>
       <div class="hint">ПЕРЕТЯГНІТЬ ПОВЗУНОК · ПРОБІЛ — ВІДТВОРЕННЯ · ← →  КРОК</div>
     </div>
-    <div id="scrub">
-      <canvas id="hist"></canvas>
-      <div id="scrub-track"></div>
-      <div class="scrub-band" id="band1"></div>
-      <div class="scrub-band" id="band2" style="display:none"></div>
-      <input id="slider" type="range" min="0" max="86340" value="43200" step="60">
-      <div id="scrub-axis"></div>
-    </div>
     <div class="bottombar">
       <div class="filter-bar">
         <span class="filter-lbl">ТИП</span>
@@ -323,6 +318,7 @@
           <a id="clearArea">скинути</a></span>
       </div>
       <div class="time-bar">
+        <span class="readout-inline" id="winRange">&mdash;</span>
         <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
         <span class="ctrl-label">ВІКНО</span>
         <div class="win-seg" id="winSeg">
@@ -331,8 +327,15 @@
           <button data-win="7200">2 ГОД</button>
         </div>
         <button class="ghost-btn" id="resetBtn">12:00</button>
-        <span class="readout-inline" id="winRange" style="margin-left:auto">&mdash;</span>
       </div>
+    </div>
+    <div id="scrub">
+      <canvas id="hist"></canvas>
+      <div id="scrub-track"></div>
+      <div class="scrub-band" id="band1"></div>
+      <div class="scrub-band" id="band2" style="display:none"></div>
+      <input id="slider" type="range" min="0" max="86340" value="43200" step="60">
+      <div id="scrub-axis"></div>
     </div>
   </div>
 </div>
