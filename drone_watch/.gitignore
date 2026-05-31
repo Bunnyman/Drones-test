@@ -1,0 +1,8 @@
+# local runtime artifacts — do not commit
+config.json
+drones.db
+cron.log
+incoming/
+processed/
+__pycache__/
+*.pyc

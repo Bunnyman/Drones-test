@@ -1,0 +1,9 @@
+# drone_watch cron entry — edit paths, then install with:  crontab -e
+#
+# Runs every 2 minutes, processes any NEW screenshots dropped into the
+# watch folder, and appends parsed detections to the SQLite DB.
+# Already-processed files (matched by SHA-256) are skipped automatically.
+#
+# Use absolute paths in cron (it has a minimal environment).
+
+*/2 * * * * cd /ABSOLUTE/PATH/TO/Drones-test && /usr/bin/python3 -m drone_watch.watch --once --config /ABSOLUTE/PATH/TO/Drones-test/drone_watch/config.json >> /ABSOLUTE/PATH/TO/Drones-test/drone_watch/cron.log 2>&1

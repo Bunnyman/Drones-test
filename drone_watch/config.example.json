@@ -1,0 +1,22 @@
+{
+  "watch_dir": "./incoming",
+  "processed_dir": "./processed",
+  "move_processed": true,
+  "database": "./drones.db",
+  "calibration": "./drone_watch/calibration.json",
+
+  "tesseract_lang": "ukr+eng",
+  "ocr_upscale": 3,
+
+  "red_hsv_ranges": [
+    [[0, 120, 70],   [10, 255, 255]],
+    [[160, 120, 70], [179, 255, 255]]
+  ],
+  "min_dot_area": 60,
+  "max_dot_area": 3000,
+
+  "label_offset_y": 4,
+  "label_box_dx": -110,
+  "label_box_w": 240,
+  "label_box_h": 70
+}
