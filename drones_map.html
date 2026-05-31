@@ -216,8 +216,10 @@
   .ctrl-label { font-size: 9.5px; color: var(--dimmer); letter-spacing: 0.16em; }
   .win-seg { display: flex; gap: 4px; }
   .win-seg button {
+    height: 24px; padding: 0 12px;
     font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
-    padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px;
+    line-height: 1;
+    border: 1px solid var(--line); border-radius: 999px;
     background: transparent;
     color: var(--dimmer); cursor: pointer; transition: all 120ms;
   }
@@ -250,38 +252,27 @@
     padding: 0 4px;
   }
 
-  /* Filter pills — filled when active, grey when not. */
+  /* Filter pills — filled when active, grey when not. Same height as
+     the time-frame segmented buttons. */
   #typeFilters, #tagFilters {
     display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
   .pill {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 3px 11px;
+    display: inline-flex; align-items: center;
+    height: 24px; padding: 0 12px;
     border: 1px solid var(--line);
     border-radius: 999px;
-    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em;
+    line-height: 1;
     cursor: pointer; user-select: none;
     background: transparent; color: var(--dimmer);
     transition: all 120ms;
-  }
-  /* Type pills carry a coloured swatch on the left — push it flush to
-     the pill's left border, no inner padding on that side. */
-  .pill.type { padding-left: 4px; }
-  .pill .swatch {
-    display: inline-block; width: 10px; height: 10px; border-radius: 50%;
-    background: var(--col, var(--dimmer));
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.12);
-    flex: none;
   }
   .pill:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
   .pill.active {
     background: var(--col, var(--accent));
     border-color: var(--col, var(--accent));
     color: #0c0c0c;
-  }
-  .pill.active .swatch {
-    background: rgba(0,0,0,0.35);
-    box-shadow: none;
   }
   .pill.tag.active {
     background: var(--accent); border-color: var(--accent); color: #1a0f06;
@@ -459,16 +450,8 @@ function buildPillRow(host, items, enabledSet, labelFn, colorFn, extraClass, onC
   for (const it of items) {
     const pill = document.createElement('span');
     pill.className = 'pill active' + (extraClass ? ' ' + extraClass : '');
-    if (colorFn) {
-      pill.style.setProperty('--col', colorFn(it));
-      const sw = document.createElement('span');
-      sw.className = 'swatch';
-      sw.style.background = colorFn(it);
-      pill.appendChild(sw);
-    }
-    const txt = document.createElement('span');
-    txt.textContent = labelFn(it);
-    pill.appendChild(txt);
+    if (colorFn) pill.style.setProperty('--col', colorFn(it));
+    pill.textContent = labelFn(it);
     pill.addEventListener('click', () => {
       if (enabledSet.has(it)) enabledSet.delete(it);
       else enabledSet.add(it);
