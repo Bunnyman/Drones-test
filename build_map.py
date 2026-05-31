@@ -461,12 +461,9 @@ const map = L.map('map', {
   zoomControl: true,
   attributionControl: true,
 });
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
-  maxZoom: 19, subdomains: 'abcd',
-  attribution: '&copy; OpenStreetMap &copy; CARTO',
-}).addTo(map);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
-  maxZoom: 19, subdomains: 'abcd', pane: 'shadowPane', attribution: '',
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 19,
+  attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics',
 }).addTo(map);
 
 // Fit to all event bounds initially.
