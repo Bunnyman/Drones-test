@@ -77,8 +77,6 @@ HTML_TEMPLATE = """<!doctype html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Geist:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
 <style>
   :root {
@@ -400,7 +398,6 @@ HTML_TEMPLATE = """<!doctype html>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <script>
 const EVENTS = __DATA__;
@@ -419,12 +416,8 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/
 const allBounds = L.latLngBounds(EVENTS.map(e => [e.lat, e.lon]));
 map.fitBounds(allBounds, { padding: [20, 20] });
 
-const cluster = L.markerClusterGroup({
-  maxClusterRadius: 45,
-  spiderfyOnMaxZoom: true,
-  showCoverageOnHover: false,
-});
-map.addLayer(cluster);
+const markerRenderer = L.canvas({ padding: 0.5 });
+const markerLayer = L.layerGroup().addTo(map);
 
 // --- area selection (rectangle / polygon) ---
 const drawnItems = new L.FeatureGroup();
@@ -758,47 +751,27 @@ function update() {
   const start = b.start, end = b.end, win = b.win;
   const visible = activePool.filter(e => inWindowTod(e.tod, b));
 
-  // Aggregate by rounded location across ALL dates.
-  const key = (e) => `${e.lat.toFixed(4)},${e.lon.toFixed(4)}`;
-  const groups = new Map();
+  // One marker per event — no aggregation, no clustering.
+  markerLayer.clearLayers();
+  const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   for (const e of visible) {
-    const k = key(e);
-    if (!groups.has(k)) groups.set(k, []);
-    groups.get(k).push(e);
-  }
-
-  cluster.clearLayers();
-  for (const list of groups.values()) {
-    const first = list[0];
-    const n = list.length;
-    const radius = 6 + Math.min(22, Math.sqrt(n) * 3.5);
-    // Colour by the most common type in this co-located group.
-    const typeCounts = {};
-    for (const e of list) typeCounts[e.type] = (typeCounts[e.type] || 0) + 1;
-    const dominantType = Object.entries(typeCounts)
-      .sort((a, b) => b[1] - a[1])[0][0];
-    const col = typeColor(dominantType);
-    const marker = L.circleMarker([first.lat, first.lon], {
-      radius,
+    const col = typeColor(e.type);
+    const marker = L.circleMarker([e.lat, e.lon], {
+      renderer: markerRenderer,
+      radius: 5,
       color: col,
       weight: 1,
       fillColor: col,
       fillOpacity: 0.55,
     });
-    const sorted = list.slice().sort((a, b) =>
-      a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date));
-    const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-    const lines = sorted.map(e => {
-      const meta = [e.name, e.type, e.comment].filter(s => s).join(' · ');
-      return `<div><b>${e.date} ${e.time}</b>${meta ? ' &mdash; ' + esc(meta) : ''}</div>`;
-    });
+    const meta = [e.name, e.type, e.comment].filter(s => s).join(' · ');
     marker.bindPopup(
-      `<b>${n} event${n>1?'s':''} at this spot</b><br>` +
-      (first.place ? esc(first.place) + '<br>' : '') +
-      `${first.lat.toFixed(5)}, ${first.lon.toFixed(5)}<hr style="margin:4px 0">` +
-      `<div style="max-height:200px;overflow:auto;font-size:12px">${lines.join('')}</div>`
+      `<b>${e.date} ${e.time}</b><br>` +
+      (e.place ? esc(e.place) + '<br>' : '') +
+      `${e.lat.toFixed(5)}, ${e.lon.toFixed(5)}` +
+      (meta ? '<hr style="margin:4px 0">' + esc(meta) : '')
     );
-    cluster.addLayer(marker);
+    markerLayer.addLayer(marker);
   }
 
   // Stats reflect the area filter (selection if drawn, else viewport).
