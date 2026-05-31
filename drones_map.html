@@ -18,6 +18,8 @@
     --accent: #ff8b3d;
     --accent-soft: rgba(255,139,61,0.13);
     --accent-2: #6db6ff;
+    --area: #67e8f9;
+    --area-soft: rgba(103,232,249,0.13);
     --bar-dim: rgba(150,160,175,0.40);
     --font-display: 'Geist', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -239,10 +241,9 @@
   #areaStatus {
     display: none;
     font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
-    padding: 4px 8px;
-    border: 1px solid var(--accent);
-    background: var(--accent-soft);
-    color: var(--accent);
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--area-soft);
+    color: var(--area);
   }
   #areaStatus.active { display: inline-flex; align-items: center; gap: 8px; }
   #areaStatus a { color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
@@ -373,8 +374,8 @@ const drawControl = new L.Control.Draw({
     circle: false,
     circlemarker: false,
     marker: false,
-    rectangle: { shapeOptions: { color: '#ff8b3d', weight: 2, fillOpacity: 0.05 } },
-    polygon: { shapeOptions: { color: '#ff8b3d', weight: 2, fillOpacity: 0.05 },
+    rectangle: { shapeOptions: { color: '#67e8f9', weight: 2, fillOpacity: 0.08 } },
+    polygon: { shapeOptions: { color: '#67e8f9', weight: 2, fillOpacity: 0.08 },
                allowIntersection: false, showArea: false }
   },
   edit: { featureGroup: drawnItems, edit: true, remove: true }
