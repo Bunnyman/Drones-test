@@ -445,7 +445,7 @@ HTML_TEMPLATE = """<!doctype html>
   <div class="scrubber">
     <div class="track-head">
       <div class="title-row">
-        <div class="month" id="scrubTitle">ХРОНОЛОГІЯ ПОДІЙ</div>
+        <div class="month" id="scrubTitle">АКТИВНІСТЬ</div>
         <span class="clock-inline" id="clock">__DAYS__ ДНІВ · __DATE_RANGE__</span>
       </div>
       <select class="topbar-select" id="monthSel"></select>
