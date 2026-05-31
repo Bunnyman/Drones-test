@@ -41,6 +41,42 @@ Drop `.png`/`.jpg` screenshots into the `incoming/` folder (configurable).
 Each run hashes every file; already-seen files are skipped, so re-running is
 safe. Processed files are moved to `processed/` if `move_processed` is true.
 
+## Ingesting a JSON of base64 images
+
+If your screenshots arrive as a JSON array of base64-encoded PNGs (e.g. exported
+from an app) instead of files in a folder, use the JSON ingester:
+
+```bash
+python -m drone_watch.ingest_json images.json --config drone_watch/config.json
+```
+
+Each item is expected to look like
+`{"Id": "...", "Image": "<base64 PNG>", "TimestampUtc": "...Z"}`
+(override the field names with `--image-key/--time-key/--id-key`). The
+per-image `TimestampUtc` becomes each detection's `detected_time`. Byte-identical
+images are de-duplicated by SHA-256, so a feed that repeats the same frame many
+times is collapsed to one set of detections.
+
+## Marker styles
+
+`config.json` `marker_style` selects what counts as a drone:
+
+- `"red"`   — solid red dots (`detect_red_dots`).
+- `"badge"` — black "FPV" disks with a red/orange ring (`detect_fpv_badges`),
+  as used by the **ГРАФІТ** map source.
+- `"both"`  — detect either and merge (default).
+
+Badge tuning keys: `badge_dark_max`, `badge_min_area`, `badge_max_area`,
+`badge_red_ring_min`.
+
+## Example: the ГРАФІТ map source
+
+`calibration_graphite_827x880.json` is a ready calibration for that app's fixed
+827×880 view (Izium–Lyman sector, Web Mercator). Affine-fit residuals are
+~0.5–1.3 km; accuracy is softer east of Lyman where control coverage is thin
+(treat eastern dots as ±1–3 km). Point `config.json` `calibration` at it and set
+`marker_style: "badge"`.
+
 ## Cron
 
 Edit `drone_watch/crontab.example` (set absolute paths), then:

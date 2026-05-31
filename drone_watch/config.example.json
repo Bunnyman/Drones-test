@@ -8,12 +8,18 @@
   "tesseract_lang": "ukr+eng",
   "ocr_upscale": 3,
 
+  "marker_style": "both",
   "red_hsv_ranges": [
-    [[0, 120, 70],   [10, 255, 255]],
-    [[160, 120, 70], [179, 255, 255]]
+    [[0, 90, 80],   [12, 255, 255]],
+    [[160, 90, 80], [179, 255, 255]]
   ],
   "min_dot_area": 60,
   "max_dot_area": 3000,
+
+  "badge_dark_max": 70,
+  "badge_min_area": 150,
+  "badge_max_area": 1200,
+  "badge_red_ring_min": 120,
 
   "label_offset_y": 4,
   "label_box_dx": -110,

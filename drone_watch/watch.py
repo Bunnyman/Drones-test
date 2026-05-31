@@ -44,7 +44,7 @@ def process_image(path, conn, geo, cfg):
         print(f"  ! could not read {path}", file=sys.stderr)
         return 0
 
-    dots = detect.detect_red_dots(image, cfg)
+    dots = detect.detect_markers(image, cfg)
     detections = []
     for dot in dots:
         crop = detect.label_crop(image, dot, cfg)
