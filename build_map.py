@@ -158,12 +158,6 @@ HTML_TEMPLATE = """<!doctype html>
     backdrop-filter: blur(6px);
     padding: 18px 22px 20px; width: 320px;
   }
-  .hud .head {
-    font-family: var(--font-mono); font-size: 16px;
-    letter-spacing: 0.12em; color: var(--accent);
-    font-variant-numeric: tabular-nums;
-    margin-bottom: 16px;
-  }
   .hud .hr { height: 1px; background: var(--line); margin: 18px 0 16px; }
   .hud .grid {
     display: grid; grid-template-columns: 1fr 1fr;
@@ -313,7 +307,10 @@ HTML_TEMPLATE = """<!doctype html>
   .filter-bar .group-sep {
     width: 1px; height: 14px; background: var(--line); margin: 0 4px;
   }
-  .time-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .filter-bar .time-group {
+    display: flex; align-items: center; gap: 10px;
+    margin-left: auto;
+  }
 
   .play {
     display: inline-flex; align-items: center; gap: 7px;
@@ -347,10 +344,11 @@ HTML_TEMPLATE = """<!doctype html>
   }
   .ghost-btn:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
 
-  /* Map control toolbar — anchored to the bottom-left of the map. */
+  /* Map control toolbar — anchored to the top-right of the map. */
   .map-toolbar {
-    position: absolute; bottom: 18px; left: 18px; z-index: 500;
+    position: absolute; top: 18px; right: 18px; z-index: 500;
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    justify-content: flex-end;
   }
   .map-btn {
     display: inline-flex; align-items: center; gap: 6px;
@@ -412,7 +410,7 @@ HTML_TEMPLATE = """<!doctype html>
   .leaflet-control-zoom-in  { border-radius: 14px 14px 0 0 !important; }
   .leaflet-control-zoom-out { border-radius: 0 0 14px 14px !important; border-top: 0 !important; }
   #zonesList {
-    position: absolute; bottom: calc(100% + 6px); left: 0;
+    position: absolute; top: calc(100% + 6px); right: 0;
     background: rgba(10,10,10,0.95); border: 1px solid var(--line);
     padding: 4px;
     min-width: 220px; max-height: 240px; overflow-y: auto;
@@ -478,7 +476,6 @@ HTML_TEMPLATE = """<!doctype html>
     <div id="map"></div>
 
     <div class="hud">
-      <div class="head" id="hudTimeframe">&mdash;</div>
       <div class="grid">
         <div class="cell">
           <div class="v" id="hudAvgDay">0</div>
@@ -538,14 +535,15 @@ HTML_TEMPLATE = """<!doctype html>
       <span class="group-sep"></span>
       <span class="filter-lbl">ДОСТОВІРНІСТЬ</span>
       <span id="tagFilters"></span>
-      <span class="group-sep"></span>
-      <span class="filter-lbl">ВІКНО</span>
-      <div class="win-seg" id="winSeg">
-        <button data-win="1800">30 ХВ</button>
-        <button data-win="3600" class="is-active">1 ГОД</button>
-        <button data-win="7200">2 ГОД</button>
-      </div>
-      <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
+      <span class="time-group">
+        <span class="filter-lbl">ВІКНО</span>
+        <div class="win-seg" id="winSeg">
+          <button data-win="1800">30 ХВ</button>
+          <button data-win="3600" class="is-active">1 ГОД</button>
+          <button data-win="7200">2 ГОД</button>
+        </div>
+        <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
+      </span>
     </div>
     <div id="scrub">
       <canvas id="hist"></canvas>
@@ -872,7 +870,6 @@ const histCanvas = document.getElementById('hist');
 const winSeg = document.getElementById('winSeg');
 
 // Stat outputs (HUD + inline clock).
-const elHudTimeframe = document.getElementById('hudTimeframe');
 const elHudAvgDay    = document.getElementById('hudAvgDay');
 const elHudAvgWin    = document.getElementById('hudAvgWin');
 const elHudAvgWinCap = document.getElementById('hudAvgWinCap');
@@ -1243,7 +1240,6 @@ function update() {
   // Stats reflect the area filter (selection if drawn, else viewport).
   let inAreaCount = 0;
   for (const e of visible) { if (inAreaFilter(e)) inAreaCount++; }
-  elHudTimeframe.textContent = `${fmtTod(start)} – ${fmtTod(end)}`;
   // The histogram bins are already area-filtered, so their sum is the
   // total event count inside the active area across the full 24 h.
   const inAreaTotal = histBins.reduce((s, n) => s + n, 0);
