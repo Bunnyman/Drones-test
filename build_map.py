@@ -467,15 +467,13 @@ HTML_TEMPLATE = """<!doctype html>
         <span id="tagFilters"></span>
       </div>
       <div class="time-bar">
-        <span class="readout-inline" id="winRange">&mdash;</span>
-        <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
         <span class="ctrl-label">ВІКНО</span>
         <div class="win-seg" id="winSeg">
           <button data-win="1800">30 ХВ</button>
           <button data-win="3600" class="is-active">1 ГОД</button>
           <button data-win="7200">2 ГОД</button>
         </div>
-        <button class="ghost-btn" id="resetBtn">12:00</button>
+        <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
       </div>
     </div>
   </div>
@@ -731,20 +729,18 @@ const slider = document.getElementById('slider');
 const monthSel = document.getElementById('monthSel');
 const playBtn = document.getElementById('play');
 const playLabel = document.getElementById('playLabel');
-const resetBtn = document.getElementById('resetBtn');
 const band1 = document.getElementById('band1');
 const band2 = document.getElementById('band2');
 const axis = document.getElementById('scrub-axis');
 const histCanvas = document.getElementById('hist');
 const winSeg = document.getElementById('winSeg');
 
-// Stat outputs that still exist (HUD + readout + inline clock).
+// Stat outputs that still exist (HUD + inline clock).
 const elHudBig     = document.getElementById('hudBig');
 const elHudPool    = document.getElementById('hudPool');
 const elHudPct     = document.getElementById('hudPct');
 const elHudPeak    = document.getElementById('hudPeak');
 const elHudPeakTime= document.getElementById('hudPeakTime');
-const elWinRange   = document.getElementById('winRange');
 const elClock      = document.getElementById('clock');
 
 // Window-size segmented control. Read the currently active button.
@@ -1098,7 +1094,6 @@ function update() {
   const poolN = activePool.length || 1;
   elHudBig.textContent   = inAreaCount.toLocaleString('uk-UA');
   elHudPct.textContent   = ((inAreaCount / poolN) * 100).toFixed(1) + '%';
-  elWinRange.textContent = `${fmtTod(start)} – ${fmtTod(end)}`;
 
   // Always redraw the histogram so bar colours track the window.
   drawHistogram();
@@ -1141,7 +1136,6 @@ function setPlaying(on) {
   }
 }
 playBtn.addEventListener('click', () => setPlaying(!playing));
-resetBtn.addEventListener('click', () => { setPlaying(false); slider.value = 43200; update(); });
 
 // Keyboard shortcuts.
 window.addEventListener('keydown', (e) => {
