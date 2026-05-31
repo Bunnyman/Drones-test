@@ -322,12 +322,19 @@ HTML_TEMPLATE = """<!doctype html>
   }
   .ghost-btn:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
 
+  /* Area-selection controls — anchored to the bottom-left of the map. */
+  .map-area-controls {
+    position: absolute; bottom: 18px; left: 18px; z-index: 500;
+    display: flex; align-items: center; gap: 10px;
+  }
   #areaStatus {
     display: none;
-    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
-    padding: 4px 10px; border-radius: 999px;
-    background: var(--area-soft);
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em;
+    padding: 6px 14px; border-radius: 999px;
+    background: rgba(0,0,0,0.72);
+    border: 1px solid var(--area);
     color: var(--area);
+    backdrop-filter: blur(6px);
   }
   #areaStatus.active { display: inline-flex; align-items: center; gap: 10px; }
   #areaStatus a { color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
@@ -338,21 +345,23 @@ HTML_TEMPLATE = """<!doctype html>
   .zones-menu { position: relative; display: inline-flex; }
   .zones-menu.empty { display: none; }
   #zonesToggle {
-    height: 24px; padding: 0 12px;
+    height: 28px; padding: 0 14px;
     font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
-    background: transparent; color: var(--area);
-    border: 0; border-radius: 999px;
+    background: rgba(0,0,0,0.72); color: var(--area);
+    border: 1px solid var(--area); border-radius: 999px;
     cursor: pointer;
     display: inline-flex; align-items: center; gap: 5px;
+    backdrop-filter: blur(6px);
   }
-  #zonesToggle:hover { background: var(--area-soft); }
-  #zonesToggle.open { background: var(--area-soft); }
+  #zonesToggle:hover { background: rgba(0,0,0,0.85); }
+  #zonesToggle.open { background: rgba(0,0,0,0.9); }
   #zonesList {
     position: absolute; bottom: calc(100% + 6px); left: 0;
-    background: #0a0a0a; border: 1px solid var(--line);
+    background: rgba(10,10,10,0.95); border: 1px solid var(--line);
     padding: 4px;
     min-width: 200px; max-height: 240px; overflow-y: auto;
     z-index: 700;
+    backdrop-filter: blur(6px);
   }
   #zonesList[hidden] { display: none; }
   .zone-item {
@@ -419,6 +428,17 @@ HTML_TEMPLATE = """<!doctype html>
       <div class="mini"><span class="mk">ПІК ЗА ДОБОЮ</span><span class="mv peak" id="hudPeak">0</span></div>
       <div class="mini"><span class="mk">ПІК О</span><span class="mv" id="hudPeakTime">&mdash;</span></div>
     </div>
+
+    <div class="map-area-controls">
+      <span id="areaStatus">&#9633; <span id="areaLabel">ОБЛАСТЬ</span>
+        <a id="saveArea">зберегти</a>
+        <span class="sep">·</span>
+        <a id="clearArea">скинути</a></span>
+      <div class="zones-menu empty" id="zonesMenu">
+        <button id="zonesToggle">ЗОНИ <span id="zonesCount"></span> &#9662;</button>
+        <div id="zonesList" hidden></div>
+      </div>
+    </div>
   </div>
 
   <!-- Scrubber -->
@@ -445,14 +465,6 @@ HTML_TEMPLATE = """<!doctype html>
         <span class="group-sep"></span>
         <span class="filter-lbl">ДОСТОВІРНІСТЬ</span>
         <span id="tagFilters"></span>
-        <span id="areaStatus">&#9633; <span id="areaLabel">ОБЛАСТЬ</span>
-          <a id="saveArea">зберегти</a>
-          <span class="sep">·</span>
-          <a id="clearArea">скинути</a></span>
-        <div class="zones-menu empty" id="zonesMenu">
-          <button id="zonesToggle">ЗОНИ <span id="zonesCount"></span> &#9662;</button>
-          <div id="zonesList" hidden></div>
-        </div>
       </div>
       <div class="time-bar">
         <span class="readout-inline" id="winRange">&mdash;</span>
