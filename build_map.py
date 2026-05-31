@@ -342,11 +342,24 @@ HTML_TEMPLATE = """<!doctype html>
   }
   .ghost-btn:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
 
-  /* Map control toolbar — anchored to the top-right of the map. */
+  /* Map control toolbar — anchored to the top-right of the map. The
+     #zoneToggle pill stays visible; everything else lives inside
+     #zoneControls which collapses by default. */
   .map-toolbar {
     position: absolute; top: 18px; right: 18px; z-index: 500;
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     justify-content: flex-end;
+  }
+  .zone-controls {
+    display: none; align-items: center; gap: 8px; flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .zone-controls.open { display: flex; }
+  #zoneToggle.is-active { border-color: var(--area); color: var(--area); background: rgba(0,0,0,0.85); }
+  #zoneToggle.has-area::after {
+    content: ''; display: inline-block;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--area); margin-left: 4px;
   }
   .map-btn {
     display: inline-flex; align-items: center; gap: 6px;
@@ -498,20 +511,23 @@ HTML_TEMPLATE = """<!doctype html>
     </div>
 
     <div class="map-toolbar">
-      <button class="map-btn" id="drawRect" title="Намалювати прямокутник">
-        <span class="ic">&#9645;</span> ПРЯМОКУТНИК
-      </button>
-      <button class="map-btn" id="drawPoly" title="Намалювати полігон">
-        <span class="ic">&#9700;</span> ПОЛІГОН
-      </button>
-      <span id="areaStatus">&#9633; <span id="areaLabel">ОБЛАСТЬ</span>
-        <a id="saveArea">зберегти</a>
-        <span class="sep">·</span>
-        <a id="clearArea">скинути</a></span>
-      <div class="zones-menu empty" id="zonesMenu">
-        <button class="map-btn" id="zonesToggle"><span class="ic">&#9776;</span> ЗОНИ <span id="zonesCount"></span></button>
-        <div id="zonesList" hidden></div>
+      <div class="zone-controls" id="zoneControls">
+        <button class="map-btn" id="drawRect" title="Намалювати прямокутник">
+          <span class="ic">&#9645;</span> ПРЯМОКУТНИК
+        </button>
+        <button class="map-btn" id="drawPoly" title="Намалювати полігон">
+          <span class="ic">&#9700;</span> ПОЛІГОН
+        </button>
+        <span id="areaStatus">&#9633; <span id="areaLabel">ОБЛАСТЬ</span>
+          <a id="saveArea">зберегти</a>
+          <span class="sep">·</span>
+          <a id="clearArea">скинути</a></span>
+        <div class="zones-menu empty" id="zonesMenu">
+          <button class="map-btn" id="zonesToggle"><span class="ic">&#9776;</span> ЗБЕРЕЖЕНІ <span id="zonesCount"></span></button>
+          <div id="zonesList" hidden></div>
+        </div>
       </div>
+      <button class="map-btn" id="zoneToggle">ОБЛАСТЬ <span id="zoneChev">&#9662;</span></button>
     </div>
   </div>
 
@@ -726,6 +742,7 @@ function refreshSelectionFromLayers() {
     selectionPolygon && activeZoneIdx < 0 ? '' : 'none';
   renderZonesMenu();
   updateMask();
+  refreshZoneToggleBadge();
   recomputeHistBins();
   drawHistogram();
   update();
@@ -752,6 +769,20 @@ document.getElementById('drawPoly').addEventListener('click', () =>
   startDraw(L.Draw.Polygon, { shapeOptions: SHAPE_OPTS,
                               allowIntersection: false, showArea: false })
 );
+
+// --- collapsible map toolbar ---
+const zoneToggle   = document.getElementById('zoneToggle');
+const zoneControls = document.getElementById('zoneControls');
+const zoneChev     = document.getElementById('zoneChev');
+zoneToggle.addEventListener('click', () => {
+  const open = !zoneControls.classList.contains('open');
+  zoneControls.classList.toggle('open', open);
+  zoneToggle.classList.toggle('is-active', open);
+  zoneChev.innerHTML = open ? '&#9652;' : '&#9662;';
+});
+function refreshZoneToggleBadge() {
+  zoneToggle.classList.toggle('has-area', !!selectionPolygon);
+}
 
 // Zones menu open/close
 const zonesToggle = document.getElementById('zonesToggle');
