@@ -71,6 +71,7 @@ HTML_TEMPLATE = """<!doctype html>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
 <style>
   html, body { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   #map { position: absolute; top: 0; bottom: 200px; left: 0; right: 0; }
@@ -89,6 +90,22 @@ HTML_TEMPLATE = """<!doctype html>
   #current { font-weight: 600; min-width: 220px; }
   #count { color: #5fb; font-weight: 600; }
   #peak { color: #aaa; font-size: 12px; margin-left: auto; }
+  #areaStatus {
+    display: none;
+    background: rgba(95, 255, 180, 0.18);
+    border: 1px solid #5fb;
+    color: #cfe;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  #areaStatus a {
+    color: #fff;
+    margin-left: 6px;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  #areaStatus.active { display: inline-block; }
   select { background: #333; color: #eee; border: 1px solid #555; padding: 4px; border-radius: 3px; }
   label { font-size: 12px; opacity: .8; }
 
@@ -205,6 +222,8 @@ HTML_TEMPLATE = """<!doctype html>
     <span>In window: <span id="count">0</span> /
       <span id="poolCount">__TOTAL__</span>
       <span id="poolNote">(all __DAYS__ days, __DATE_RANGE__)</span></span>
+    <span id="areaStatus">&#9633; Area selected
+      <a id="clearArea">clear</a></span>
     <span id="peak">Peak: &mdash;</span>
     <label>Month:
       <select id="monthSel"></select>
@@ -230,6 +249,7 @@ HTML_TEMPLATE = """<!doctype html>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <script>
 const EVENTS = __DATA__;
 
@@ -249,6 +269,67 @@ const cluster = L.markerClusterGroup({
   showCoverageOnHover: false,
 });
 map.addLayer(cluster);
+
+// --- area selection (rectangle / polygon) ---
+const drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+const drawControl = new L.Control.Draw({
+  position: 'topright',
+  draw: {
+    polyline: false,
+    circle: false,
+    circlemarker: false,
+    marker: false,
+    rectangle: { shapeOptions: { color: '#5fb', weight: 2, fillOpacity: 0.05 } },
+    polygon: { shapeOptions: { color: '#5fb', weight: 2, fillOpacity: 0.05 },
+               allowIntersection: false, showArea: false }
+  },
+  edit: { featureGroup: drawnItems, edit: true, remove: true }
+});
+map.addControl(drawControl);
+
+let selectionPolygon = null;  // [[lat,lon], ...] or null
+
+function pointInPolygon(lat, lon, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const yi = poly[i][0], xi = poly[i][1];
+    const yj = poly[j][0], xj = poly[j][1];
+    if (((yi > lat) !== (yj > lat)) &&
+        (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function refreshSelectionFromLayers() {
+  const layers = drawnItems.getLayers();
+  if (!layers.length) {
+    selectionPolygon = null;
+  } else {
+    const layer = layers[layers.length - 1];
+    let ll = layer.getLatLngs();
+    while (Array.isArray(ll[0])) ll = ll[0];  // unwrap polygon ring
+    selectionPolygon = ll.map(p => [p.lat, p.lng]);
+  }
+  document.getElementById('areaStatus').classList.toggle('active', !!selectionPolygon);
+  recomputeHistBins();
+  drawHistogram();
+  update();
+}
+
+map.on(L.Draw.Event.CREATED, (e) => {
+  drawnItems.clearLayers();          // single-shape selection
+  drawnItems.addLayer(e.layer);
+  refreshSelectionFromLayers();
+});
+map.on(L.Draw.Event.EDITED,  refreshSelectionFromLayers);
+map.on(L.Draw.Event.DELETED, refreshSelectionFromLayers);
+document.getElementById('clearArea').addEventListener('click', () => {
+  drawnItems.clearLayers();
+  refreshSelectionFromLayers();
+});
 
 const slider = document.getElementById('slider');
 const currentLabel = document.getElementById('current');
@@ -310,13 +391,17 @@ function fmtTod(secs) {
 const HIST_BINS = 96;            // 15-minute buckets across 24 h
 const HIST_BIN_SECS = 86400 / HIST_BINS;
 
+function inAreaFilter(e) {
+  // When a selection polygon exists, the stats use it. Otherwise we
+  // fall back to the current map viewport so things still make sense.
+  if (selectionPolygon) return pointInPolygon(e.lat, e.lon, selectionPolygon);
+  return map.getBounds().contains([e.lat, e.lon]);
+}
+
 function recomputeHistBins() {
-  // Histogram reflects only events inside the current map viewport (and the
-  // active month filter). Re-runs on pan/zoom and on month change.
-  const bounds = map.getBounds();
   histBins = new Array(HIST_BINS).fill(0);
   for (const e of activePool) {
-    if (!bounds.contains([e.lat, e.lon])) continue;
+    if (!inAreaFilter(e)) continue;
     histBins[Math.min(HIST_BINS - 1, Math.floor(e.tod / HIST_BIN_SECS))]++;
   }
 }
@@ -435,7 +520,10 @@ function update() {
     cluster.addLayer(marker);
   }
 
-  countLabel.textContent = visible.length;
+  // Stats reflect the area filter (selection if drawn, else viewport).
+  let inAreaCount = 0;
+  for (const e of visible) { if (inAreaFilter(e)) inAreaCount++; }
+  countLabel.textContent = inAreaCount;
   currentLabel.textContent =
     `Window ${fmtTod(start)} – ${fmtTod(start + win)}  (any date)`;
 
