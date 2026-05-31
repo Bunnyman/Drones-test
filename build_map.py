@@ -1017,6 +1017,7 @@ function drawHistogram() {
     const xOf = (h) => (h / 24) * W;
     const drawSunLine = (h, glyph, color) => {
       const x = xOf(h);
+      // Dashed vertical line across the full canvas.
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
       ctx.setLineDash([2 * dpr, 3 * dpr]);
@@ -1025,17 +1026,38 @@ function drawHistogram() {
       ctx.lineTo(x + 0.5, H);
       ctx.stroke();
       ctx.setLineDash([]);
-      // Label
+
+      // Rounded "pill" label, centred vertically on the canvas and
+      // horizontally on the line (clamped to the canvas edges).
       const hh = Math.floor(h), mm = Math.round((h - hh) * 60);
       const label = `${glyph} ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
       ctx.font = `${10 * dpr}px 'JetBrains Mono', monospace`;
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = color;
       const tw = ctx.measureText(label).width;
-      const tx = Math.max(2, Math.min(W - tw - 2, x + 4));
-      ctx.fillRect(tx - 3, padTop, tw + 6, 14 * dpr);
+      const pillH = 18 * dpr;
+      const pillW = tw + 14 * dpr;
+      const r = pillH / 2;
+      let px = Math.max(2, Math.min(W - pillW - 2, x - pillW / 2));
+      const py = (H - pillH) / 2;
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(px, py, pillW, pillH, r);
+      } else {
+        ctx.moveTo(px + r, py);
+        ctx.arcTo(px + pillW, py, px + pillW, py + pillH, r);
+        ctx.arcTo(px + pillW, py + pillH, px, py + pillH, r);
+        ctx.arcTo(px, py + pillH, px, py, r);
+        ctx.arcTo(px, py, px + pillW, py, r);
+      }
+      ctx.closePath(); ctx.fill();
+
       ctx.fillStyle = '#000';
-      ctx.fillText(label, tx, padTop + 2);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, px + pillW / 2, py + pillH / 2 + dpr * 0.5);
+      ctx.textAlign = 'start';  // restore default
+      ctx.textBaseline = 'alphabetic';
     };
     drawSunLine(ss.sunrise, '☀↑', 'rgba(245,200,80,0.95)');
     drawSunLine(ss.sunset,  '☾',  'rgba(140,180,255,0.95)');
