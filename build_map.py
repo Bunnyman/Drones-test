@@ -309,7 +309,9 @@ HTML_TEMPLATE = """<!doctype html>
   }
   .win-seg button:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
   .win-seg button.is-active {
-    background: var(--accent); border-color: var(--accent); color: #1a0f06;
+    background: rgba(255,255,255,0.16);
+    border-color: rgba(255,255,255,0.28);
+    color: var(--ink);
   }
   .ghost-btn {
     font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
@@ -353,12 +355,15 @@ HTML_TEMPLATE = """<!doctype html>
     transition: all 120ms;
   }
   .pill:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
+  /* Default active highlight is a soft medium grey — applies to non-FPV
+     types, all tag pills, and the active time-frame button. */
   .pill.active {
-    background: var(--col, var(--accent));
-    border-color: var(--col, var(--accent));
-    color: #0c0c0c;
+    background: rgba(255,255,255,0.16);
+    border-color: rgba(255,255,255,0.28);
+    color: var(--ink);
   }
-  .pill.tag.active {
+  /* FPV (the dominant type) keeps the accent-orange highlight. */
+  .pill.active[data-type="FPV"] {
     background: var(--accent); border-color: var(--accent); color: #1a0f06;
   }
 </style>
@@ -402,7 +407,7 @@ HTML_TEMPLATE = """<!doctype html>
         <span class="filter-lbl">ТИП</span>
         <span id="typeFilters"></span>
         <span class="group-sep"></span>
-        <span class="filter-lbl">ТЕГИ</span>
+        <span class="filter-lbl">ДОСТОВІРНІСТЬ</span>
         <span id="tagFilters"></span>
         <span id="areaStatus">&#9633; ОБЛАСТЬ
           <a id="clearArea">скинути</a></span>
@@ -534,6 +539,7 @@ function buildPillRow(host, items, enabledSet, labelFn, colorFn, extraClass, onC
   for (const it of items) {
     const pill = document.createElement('span');
     pill.className = 'pill active' + (extraClass ? ' ' + extraClass : '');
+    if (extraClass === 'type') pill.dataset.type = it;
     if (colorFn) pill.style.setProperty('--col', colorFn(it));
     pill.textContent = labelFn(it);
     pill.addEventListener('click', () => {
@@ -554,10 +560,15 @@ buildPillRow(
   'type',
   () => { rebuildPool(); update(); }
 );
+const CRED_LABEL = {
+  'credibility: high':   'ВИСОКА',
+  'credibility: medium': 'СЕРЕДНЯ',
+  'credibility: low':    'НИЗЬКА',
+};
 buildPillRow(
   document.getElementById('tagFilters'),
   allTags, enabledTags,
-  (t) => t.replace(/^credibility:\s*/i, 'CRED · ').toUpperCase(),
+  (t) => CRED_LABEL[t.toLowerCase()] || t.toUpperCase(),
   null,
   'tag',
   () => { rebuildPool(); update(); }
