@@ -440,12 +440,12 @@ HTML_TEMPLATE = """<!doctype html>
       <div class="head" id="hudTimeframe">&mdash;</div>
       <div class="grid">
         <div class="cell">
-          <div class="v" id="hudTotal">0</div>
-          <div class="cap">за весь<br>період</div>
+          <div class="v" id="hudAvgDay">0</div>
+          <div class="cap">за добу<br>в середньому</div>
         </div>
         <div class="cell">
-          <div class="v" id="hudAvg">0</div>
-          <div class="cap">за добу<br>в середньому</div>
+          <div class="v" id="hudAvgWin">0</div>
+          <div class="cap">за період<br>в середньому</div>
         </div>
       </div>
       <div class="hr"></div>
@@ -769,8 +769,8 @@ const winSeg = document.getElementById('winSeg');
 
 // Stat outputs (HUD + inline clock).
 const elHudTimeframe = document.getElementById('hudTimeframe');
-const elHudTotal     = document.getElementById('hudTotal');
-const elHudAvg       = document.getElementById('hudAvg');
+const elHudAvgDay    = document.getElementById('hudAvgDay');
+const elHudAvgWin    = document.getElementById('hudAvgWin');
 const elHudPeakHigh  = document.getElementById('hudPeakHigh');
 const elHudPeakLow   = document.getElementById('hudPeakLow');
 const elClock        = document.getElementById('clock');
@@ -1137,10 +1137,11 @@ function update() {
   let inAreaCount = 0;
   for (const e of visible) { if (inAreaFilter(e)) inAreaCount++; }
   elHudTimeframe.textContent = `${fmtTod(start)} – ${fmtTod(end)}`;
-  elHudTotal.textContent = inAreaCount.toLocaleString('uk-UA');
-  const avg = activeDays > 0 ? inAreaCount / activeDays : 0;
-  elHudAvg.textContent =
-    avg >= 10 ? avg.toFixed(0) : avg.toFixed(1);
+  const fmtAvg = (v) => v >= 10 ? v.toFixed(0) : v.toFixed(1);
+  const avgDay = activeDays > 0 ? activePool.length / activeDays : 0;
+  const avgWin = activeDays > 0 ? inAreaCount       / activeDays : 0;
+  elHudAvgDay.textContent = fmtAvg(avgDay);
+  elHudAvgWin.textContent = fmtAvg(avgWin);
 
   // Always redraw the histogram so bar colours track the window.
   drawHistogram();
