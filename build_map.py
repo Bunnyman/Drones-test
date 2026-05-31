@@ -1000,14 +1000,8 @@ function drawHistogram() {
   }
 
   // Bars: dim grey outside the window, orange inside.
-  // Track both the busiest and the quietest 15-min bucket.
-  let peakBin = -1, peakCount = -1;
-  let lowBin = -1,  lowCount = Infinity;
   for (let i = 0; i < HIST_BINS; i++) {
-    const c = histBins[i];
-    if (c > peakCount) { peakCount = c; peakBin = i; }
-    if (c < lowCount)  { lowCount  = c; lowBin  = i; }
-    const v = c / max;
+    const v = histBins[i] / max;
     if (v <= 0) continue;
     const x0 = Math.floor((i     / HIST_BINS) * W);
     const x1 = Math.floor(((i+1) / HIST_BINS) * W);
@@ -1019,14 +1013,27 @@ function drawHistogram() {
     ctx.fillRect(x0, y, w, barH);
   }
 
-  // Peak marker (blue triangle + dashed line).
-  if (peakCount > 0) {
-    const peakStart = peakBin * HIST_BIN_SECS;
-    const peakCenter = peakStart + HIST_BIN_SECS / 2;
+  // Best / worst window of the active window's WIDTH, sliding across
+  // the day with wrap, so the highest/lowest activity ranges match the
+  // current ВІКНО selection (30 min / 1 h / 2 h).
+  const winBins = Math.max(1, Math.round(b.win / HIST_BIN_SECS));
+  const ext = histBins.concat(histBins.slice(0, winBins - 1));
+  let cur = 0;
+  for (let i = 0; i < winBins; i++) cur += ext[i];
+  let bestStart = 0, bestCount = cur;
+  let lowStart = 0, lowCount = cur;
+  for (let s = 1; s < HIST_BINS; s++) {
+    cur += ext[s + winBins - 1] - ext[s - 1];
+    if (cur > bestCount) { bestCount = cur; bestStart = s; }
+    if (cur < lowCount)  { lowCount  = cur; lowStart  = s; }
+  }
+
+  // Blue marker at the centre of the busiest window.
+  if (bestCount > 0) {
+    const peakCenter = (bestStart * HIST_BIN_SECS + b.win / 2) % 86400;
     const pcx = (peakCenter / 86400) * W;
     ctx.fillStyle = 'rgba(109,182,255,0.95)';
     ctx.beginPath();
-    ctx.moveTo(pcx, padTop);
     ctx.moveTo(pcx, padTop + 2);
     ctx.lineTo(pcx - 5 * dpr, padTop - 5 * dpr);
     ctx.lineTo(pcx + 5 * dpr, padTop - 5 * dpr);
@@ -1036,17 +1043,13 @@ function drawHistogram() {
     ctx.beginPath(); ctx.moveTo(pcx, padTop); ctx.lineTo(pcx, H); ctx.stroke();
     ctx.setLineDash([]);
 
-    elHudPeakHigh.textContent =
-      `${fmtTod(peakStart)}–${fmtTod(peakStart + HIST_BIN_SECS)}`;
+    const bestSec = bestStart * HIST_BIN_SECS;
+    elHudPeakHigh.textContent = `${fmtTod(bestSec)}–${fmtTod(bestSec + b.win)}`;
+    const lowSec  = lowStart * HIST_BIN_SECS;
+    elHudPeakLow.textContent  = `${fmtTod(lowSec)}–${fmtTod(lowSec + b.win)}`;
   } else {
     elHudPeakHigh.textContent = '—';
-  }
-  if (lowBin >= 0) {
-    const lowStart = lowBin * HIST_BIN_SECS;
-    elHudPeakLow.textContent =
-      `${fmtTod(lowStart)}–${fmtTod(lowStart + HIST_BIN_SECS)}`;
-  } else {
-    elHudPeakLow.textContent = '—';
+    elHudPeakLow.textContent  = '—';
   }
 
   // ── Sunrise / sunset marker lines + labels ───────────────
