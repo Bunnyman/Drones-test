@@ -613,6 +613,74 @@ for (const ym of months) {
 let activePool = EVENTS;   // events left after month filter
 let histBins = [];         // histogram of (activePool ∩ viewport) over 24 h
 
+// --- Sun position --------------------------------------------------------
+// Mean centre of all events; the dataset lives in a small region so a
+// single representative lat/lon is fine for sunrise / sunset.
+const MEAN_LAT = EVENTS.reduce((s, e) => s + e.lat, 0) / EVENTS.length;
+const MEAN_LON = EVENTS.reduce((s, e) => s + e.lon, 0) / EVENTS.length;
+
+function lastSundayOfMonth(year, month /*1-12*/) {
+  // Compute the day-of-month of the last Sunday.
+  const last = new Date(Date.UTC(year, month, 0));     // last day of month
+  return last.getUTCDate() - last.getUTCDay();
+}
+function isUkraineDST(y, m, d) {
+  // EEST: last Sunday of March 03:00 → last Sunday of October 04:00 (local).
+  if (m < 3 || m > 10) return false;
+  if (m > 3 && m < 10) return true;
+  const last = lastSundayOfMonth(y, m);
+  return m === 3 ? d >= last : d < last;
+}
+
+// Approximate sunrise / sunset (in fractional hours local time) for a
+// given Gregorian date and observer (lat, lon). Uses the simple solar
+// declination model — accurate to ~2-3 min for our latitudes, which is
+// plenty for a visual indicator.
+function solarTimes(y, m, d, lat, lon) {
+  const dayUTC = Date.UTC(y, m - 1, d);
+  const N = Math.floor((dayUTC - Date.UTC(y, 0, 1)) / 86400000) + 1;
+  const declRad = 23.45 * Math.PI / 180
+                  * Math.sin(2 * Math.PI / 365 * (N - 81));
+  const latRad = lat * Math.PI / 180;
+  const cosH = -Math.tan(latRad) * Math.tan(declRad);
+  if (cosH < -1 || cosH > 1) return null;
+  const Hhours = Math.acos(cosH) * 180 / Math.PI / 15;
+  const tz = isUkraineDST(y, m, d) ? 3 : 2;
+  const noon = 12 - (lon - 15 * tz) / 15;
+  return { sunrise: noon - Hhours, sunset: noon + Hhours };
+}
+
+const solarCache = new Map();
+function solarForDate(dateStr) {
+  let v = solarCache.get(dateStr);
+  if (v !== undefined) return v;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  v = solarTimes(y, m, d, MEAN_LAT, MEAN_LON);
+  solarCache.set(dateStr, v);
+  return v;
+}
+
+// Aggregate solar window over the current pool's dates.
+let solarSummary = null;
+function recomputeSolarSummary() {
+  const dates = new Set(activePool.map(e => e.date));
+  let srSum = 0, ssSum = 0, n = 0;
+  let srMin = Infinity, srMax = -Infinity, ssMin = Infinity, ssMax = -Infinity;
+  for (const d of dates) {
+    const s = solarForDate(d);
+    if (!s) continue;
+    srSum += s.sunrise; ssSum += s.sunset; n++;
+    if (s.sunrise < srMin) srMin = s.sunrise;
+    if (s.sunrise > srMax) srMax = s.sunrise;
+    if (s.sunset  < ssMin) ssMin = s.sunset;
+    if (s.sunset  > ssMax) ssMax = s.sunset;
+  }
+  solarSummary = n ? {
+    sunrise: srSum / n, sunset: ssSum / n,
+    srMin, srMax, ssMin, ssMax,
+  } : null;
+}
+
 // Build hour scale: tick every hour, labelled every 3h.
 for (let h = 0; h <= 24; h++) {
   const pct = (h / 24) * 100;
@@ -675,6 +743,7 @@ function rebuildPool() {
     ? `${monthLabel(ym)} · ${ymDays} ДНІВ`
     : `__DAYS__ ДНІВ · __DATE_RANGE__`;
   recomputeHistBins();
+  recomputeSolarSummary();
   drawHistogram();
 }
 
@@ -711,6 +780,22 @@ function drawHistogram() {
   const innerH = H - padTop;
 
   const b = windowBounds();
+
+  // ── Daylight band (behind everything else) ───────────────
+  // Faint gold fill from earliest sunrise to latest sunset, with a
+  // slightly stronger band for "definitely-daylight" (latest sunrise →
+  // earliest sunset) so the seasonal spread reads visually.
+  if (solarSummary) {
+    const ss = solarSummary;
+    const hourToX = (h) => Math.max(0, Math.min(1, h / 24)) * W;
+    const fillBand = (a, b2, alpha) => {
+      const xa = hourToX(a), xb = hourToX(b2);
+      ctx.fillStyle = `rgba(245, 200, 80, ${alpha})`;
+      ctx.fillRect(xa, 0, xb - xa, H);
+    };
+    fillBand(ss.srMin, ss.ssMax, 0.05);  // any-daylight band
+    fillBand(ss.srMax, ss.ssMin, 0.05);  // guaranteed-daylight overlay
+  }
 
   // Day-grid: light lines every 3 h.
   ctx.strokeStyle = 'rgba(255,255,255,0.05)';
@@ -758,6 +843,36 @@ function drawHistogram() {
   } else {
     elHudPeak.textContent = '0';
     elHudPeakTime.textContent = '—';
+  }
+
+  // ── Sunrise / sunset marker lines + labels ───────────────
+  if (solarSummary) {
+    const ss = solarSummary;
+    const xOf = (h) => (h / 24) * W;
+    const drawSunLine = (h, glyph, color) => {
+      const x = xOf(h);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2 * dpr, 3 * dpr]);
+      ctx.beginPath();
+      ctx.moveTo(x + 0.5, padTop);
+      ctx.lineTo(x + 0.5, H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Label
+      const hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+      const label = `${glyph} ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+      ctx.font = `${10 * dpr}px 'JetBrains Mono', monospace`;
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = color;
+      const tw = ctx.measureText(label).width;
+      const tx = Math.max(2, Math.min(W - tw - 2, x + 4));
+      ctx.fillRect(tx - 3, padTop, tw + 6, 14 * dpr);
+      ctx.fillStyle = '#000';
+      ctx.fillText(label, tx, padTop + 2);
+    };
+    drawSunLine(ss.sunrise, '☀↑', 'rgba(245,200,80,0.95)');
+    drawSunLine(ss.sunset,  '☾',  'rgba(140,180,255,0.95)');
   }
 }
 
