@@ -78,23 +78,39 @@
     position: absolute; top: 18px; left: 18px; z-index: 500;
     background: rgba(0,0,0,0.72); border: 1px solid var(--line);
     backdrop-filter: blur(6px);
-    padding: 18px 22px 20px; width: 260px;
+    padding: 18px 22px 20px; width: 320px;
   }
-  .hud .lbl { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.18em; color: var(--dim); }
-  .hud .huge {
-    font-family: var(--font-display); font-weight: 600; font-size: 72px;
-    line-height: 0.92; letter-spacing: -0.04em; color: var(--ink);
-    font-variant-numeric: tabular-nums; margin: 8px 0 2px;
+  .hud .head {
+    font-family: var(--font-mono); font-size: 16px;
+    letter-spacing: 0.12em; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 16px;
   }
-  .hud .sub { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; color: var(--dim); }
-  .hud .sub b { color: var(--accent); font-weight: 600; }
-  .hud .hr { height: 1px; background: var(--line); margin: 16px 0 14px; }
-  .hud .mini { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
-  .hud .mini:last-child { margin-bottom: 0; }
-  .hud .mini .mk { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em; color: var(--dimmer); }
-  .hud .mini .mv { font-family: var(--font-mono); font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
-  .hud .mini .mv.peak { color: var(--accent-2); }
-  .hud .mini .mv.area { color: var(--accent); }
+  .hud .hr { height: 1px; background: var(--line); margin: 18px 0 16px; }
+  .hud .grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .hud .cell .v {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 38px; line-height: 1;
+    letter-spacing: -0.03em; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 8px;
+  }
+  .hud .cell .v.time {
+    font-family: var(--font-mono); font-weight: 400;
+    font-size: 16px; letter-spacing: 0.04em;
+    color: var(--ink);
+  }
+  .hud .cell .v.peak { color: var(--accent-2); }
+  .hud .cell .v.low  { color: var(--dim); }
+  .hud .cell .cap {
+    font-family: var(--font-mono); font-size: 9.5px;
+    letter-spacing: 0.16em; color: var(--dim);
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
 
   /* ── Scrubber bar ─────────────────────────────────────── */
   .scrubber {
@@ -337,12 +353,28 @@
     <div id="map"></div>
 
     <div class="hud">
-      <div class="lbl">ЗА ОБРАНИЙ ПЕРІОД</div>
-      <div class="huge" id="hudBig">0</div>
-      <div class="sub">з <span id="hudPool">10279</span> · <b id="hudPct">0%</b></div>
+      <div class="head" id="hudTimeframe">&mdash;</div>
+      <div class="grid">
+        <div class="cell">
+          <div class="v" id="hudTotal">0</div>
+          <div class="cap">за весь<br>період</div>
+        </div>
+        <div class="cell">
+          <div class="v" id="hudAvg">0</div>
+          <div class="cap">за добу<br>в середньому</div>
+        </div>
+      </div>
       <div class="hr"></div>
-      <div class="mini"><span class="mk">ПІК ЗА ДОБОЮ</span><span class="mv peak" id="hudPeak">0</span></div>
-      <div class="mini"><span class="mk">ПІК О</span><span class="mv" id="hudPeakTime">&mdash;</span></div>
+      <div class="grid">
+        <div class="cell">
+          <div class="v time peak" id="hudPeakHigh">&mdash;</div>
+          <div class="cap">найвища<br>активність</div>
+        </div>
+        <div class="cell">
+          <div class="v time low" id="hudPeakLow">&mdash;</div>
+          <div class="cap">найнижча<br>активність</div>
+        </div>
+      </div>
     </div>
 
     <div class="map-area-controls">
@@ -651,13 +683,15 @@ const axis = document.getElementById('scrub-axis');
 const histCanvas = document.getElementById('hist');
 const winSeg = document.getElementById('winSeg');
 
-// Stat outputs that still exist (HUD + inline clock).
-const elHudBig     = document.getElementById('hudBig');
-const elHudPool    = document.getElementById('hudPool');
-const elHudPct     = document.getElementById('hudPct');
-const elHudPeak    = document.getElementById('hudPeak');
-const elHudPeakTime= document.getElementById('hudPeakTime');
-const elClock      = document.getElementById('clock');
+// Stat outputs (HUD + inline clock).
+const elHudTimeframe = document.getElementById('hudTimeframe');
+const elHudTotal     = document.getElementById('hudTotal');
+const elHudAvg       = document.getElementById('hudAvg');
+const elHudPeakHigh  = document.getElementById('hudPeakHigh');
+const elHudPeakLow   = document.getElementById('hudPeakLow');
+const elClock        = document.getElementById('clock');
+
+let activeDays = 0;  // number of distinct dates contributing to activePool
 
 // Window-size segmented control. Read the currently active button.
 function currentWindow() {
@@ -814,11 +848,9 @@ function rebuildPool() {
   const ym = monthSel.value;
   const base = ym ? EVENTS.filter(e => e.date.startsWith(ym)) : EVENTS;
   activePool = base.filter(eventPassesFilters);
-  const poolN = activePool.length;
-  elHudPool.textContent = poolN.toLocaleString('uk-UA');
-  const ymDays = new Set(activePool.map(e => e.date)).size;
+  activeDays = new Set(activePool.map(e => e.date)).size;
   elClock.textContent = ym
-    ? `${monthLabel(ym)} · ${ymDays} ДНІВ`
+    ? `${monthLabel(ym)} · ${activeDays} ДНІВ`
     : `92 ДНІВ · 2026-03-01 → 2026-05-31`;
   recomputeHistBins();
   recomputeSolarSummary();
@@ -884,10 +916,14 @@ function drawHistogram() {
   }
 
   // Bars: dim grey outside the window, orange inside.
-  let peakBin = -1, peakCount = 0;
+  // Track both the busiest and the quietest 15-min bucket.
+  let peakBin = -1, peakCount = -1;
+  let lowBin = -1,  lowCount = Infinity;
   for (let i = 0; i < HIST_BINS; i++) {
-    if (histBins[i] > peakCount) { peakCount = histBins[i]; peakBin = i; }
-    const v = histBins[i] / max;
+    const c = histBins[i];
+    if (c > peakCount) { peakCount = c; peakBin = i; }
+    if (c < lowCount)  { lowCount  = c; lowBin  = i; }
+    const v = c / max;
     if (v <= 0) continue;
     const x0 = Math.floor((i     / HIST_BINS) * W);
     const x1 = Math.floor(((i+1) / HIST_BINS) * W);
@@ -916,11 +952,17 @@ function drawHistogram() {
     ctx.beginPath(); ctx.moveTo(pcx, padTop); ctx.lineTo(pcx, H); ctx.stroke();
     ctx.setLineDash([]);
 
-    elHudPeak.textContent = peakCount.toLocaleString('uk-UA');
-    elHudPeakTime.textContent = `${fmtTod(peakStart)}–${fmtTod(peakStart + HIST_BIN_SECS)}`;
+    elHudPeakHigh.textContent =
+      `${fmtTod(peakStart)}–${fmtTod(peakStart + HIST_BIN_SECS)}`;
   } else {
-    elHudPeak.textContent = '0';
-    elHudPeakTime.textContent = '—';
+    elHudPeakHigh.textContent = '—';
+  }
+  if (lowBin >= 0) {
+    const lowStart = lowBin * HIST_BIN_SECS;
+    elHudPeakLow.textContent =
+      `${fmtTod(lowStart)}–${fmtTod(lowStart + HIST_BIN_SECS)}`;
+  } else {
+    elHudPeakLow.textContent = '—';
   }
 
   // ── Sunrise / sunset marker lines + labels ───────────────
@@ -1007,9 +1049,11 @@ function update() {
   // Stats reflect the area filter (selection if drawn, else viewport).
   let inAreaCount = 0;
   for (const e of visible) { if (inAreaFilter(e)) inAreaCount++; }
-  const poolN = activePool.length || 1;
-  elHudBig.textContent   = inAreaCount.toLocaleString('uk-UA');
-  elHudPct.textContent   = ((inAreaCount / poolN) * 100).toFixed(1) + '%';
+  elHudTimeframe.textContent = `${fmtTod(start)} – ${fmtTod(end)}`;
+  elHudTotal.textContent = inAreaCount.toLocaleString('uk-UA');
+  const avg = activeDays > 0 ? inAreaCount / activeDays : 0;
+  elHudAvg.textContent =
+    avg >= 10 ? avg.toFixed(0) : avg.toFixed(1);
 
   // Always redraw the histogram so bar colours track the window.
   drawHistogram();
