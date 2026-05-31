@@ -13,9 +13,14 @@ from datetime import datetime
 from pathlib import Path
 
 
-CSV_PATH = Path("/root/.claude/uploads/5554a83c-6e5b-498c-9c56-2ea45dff2711/814c6f5c-trackendpoints0105202601062026.csv")
+CSV_PATHS = [
+    Path("/root/.claude/uploads/00933357-837f-4dc5-8c42-22708f358e69/2e486a91-trackendpoints0103202601042026.csv"),
+    Path("/root/.claude/uploads/00933357-837f-4dc5-8c42-22708f358e69/2b738f02-trackendpoints0104202601052026_2.csv"),
+    Path("/root/.claude/uploads/5554a83c-6e5b-498c-9c56-2ea45dff2711/814c6f5c-trackendpoints0105202601062026.csv"),
+]
 OUT_PATH = Path(__file__).parent / "drones_map.html"
 
+COL_ID      = "Номер цілі"
 COL_TIME    = "Час останньої фіксації"
 COL_COORDS  = "Координати останньої точки"
 COL_PLACE   = "Найближчий населений пункт"
@@ -27,43 +32,53 @@ COL_COMMENT = "Коментар"
 
 def parse_rows():
     events = []
+    seen = set()      # de-dup across files via (target id, last-fix timestamp)
     skipped = 0
-    with CSV_PATH.open(encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            tstr = (row.get(COL_TIME) or "").strip()
-            coords = (row.get(COL_COORDS) or "").strip()
-            if not tstr or not coords:
-                skipped += 1
-                continue
-            try:
-                ts = datetime.strptime(tstr, "%H:%M:%S %d.%m.%Y")
-            except ValueError:
-                skipped += 1
-                continue
-            try:
-                lat_str, lon_str = coords.split(",", 1)
-                lat = float(lat_str.strip())
-                lon = float(lon_str.strip())
-            except (ValueError, IndexError):
-                skipped += 1
-                continue
-            tod = ts.hour * 3600 + ts.minute * 60 + ts.second
-            raw_tags = (row.get(COL_TAGS) or "").strip()
-            tags = [t.strip() for t in raw_tags.replace(";", ",").split(",") if t.strip()]
-            events.append({
-                "tod": tod,
-                "date": ts.strftime("%Y-%m-%d"),
-                "time": ts.strftime("%H:%M:%S"),
-                "lat": round(lat, 6),
-                "lon": round(lon, 6),
-                "name": (row.get(COL_NAME) or "").strip(),
-                "type": (row.get(COL_TYPE) or "").strip(),
-                "tags": tags,
-                "place": (row.get(COL_PLACE) or "").strip(),
-                "comment": (row.get(COL_COMMENT) or "").strip(),
-            })
+    duped = 0
+    for path in CSV_PATHS:
+        with path.open(encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f):
+                tstr = (row.get(COL_TIME) or "").strip()
+                coords = (row.get(COL_COORDS) or "").strip()
+                if not tstr or not coords:
+                    skipped += 1
+                    continue
+                try:
+                    ts = datetime.strptime(tstr, "%H:%M:%S %d.%m.%Y")
+                except ValueError:
+                    skipped += 1
+                    continue
+                try:
+                    lat_str, lon_str = coords.split(",", 1)
+                    lat = float(lat_str.strip())
+                    lon = float(lon_str.strip())
+                except (ValueError, IndexError):
+                    skipped += 1
+                    continue
+                tgt_id = (row.get(COL_ID) or "").strip()
+                dedup_key = (tgt_id, tstr) if tgt_id else (tstr, lat, lon)
+                if dedup_key in seen:
+                    duped += 1
+                    continue
+                seen.add(dedup_key)
+                tod = ts.hour * 3600 + ts.minute * 60 + ts.second
+                raw_tags = (row.get(COL_TAGS) or "").strip()
+                tags = [t.strip() for t in raw_tags.replace(";", ",").split(",") if t.strip()]
+                events.append({
+                    "tod": tod,
+                    "date": ts.strftime("%Y-%m-%d"),
+                    "time": ts.strftime("%H:%M:%S"),
+                    "lat": round(lat, 6),
+                    "lon": round(lon, 6),
+                    "name": (row.get(COL_NAME) or "").strip(),
+                    "type": (row.get(COL_TYPE) or "").strip(),
+                    "tags": tags,
+                    "place": (row.get(COL_PLACE) or "").strip(),
+                    "comment": (row.get(COL_COMMENT) or "").strip(),
+                })
     events.sort(key=lambda e: e["tod"])
-    print(f"Parsed {len(events)} events (skipped {skipped})", file=sys.stderr)
+    print(f"Parsed {len(events)} events (skipped {skipped}, deduped {duped}) "
+          f"from {len(CSV_PATHS)} files", file=sys.stderr)
     return events
 
 
