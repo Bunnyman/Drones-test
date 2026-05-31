@@ -21,6 +21,7 @@ COL_COORDS  = "Координати останньої точки"
 COL_PLACE   = "Найближчий населений пункт"
 COL_NAME    = "Назва цілі"
 COL_TYPE    = "Тип цілі"
+COL_TAGS    = "Теги"
 COL_COMMENT = "Коментар"
 
 
@@ -47,6 +48,8 @@ def parse_rows():
                 skipped += 1
                 continue
             tod = ts.hour * 3600 + ts.minute * 60 + ts.second
+            raw_tags = (row.get(COL_TAGS) or "").strip()
+            tags = [t.strip() for t in raw_tags.replace(";", ",").split(",") if t.strip()]
             events.append({
                 "tod": tod,
                 "date": ts.strftime("%Y-%m-%d"),
@@ -55,6 +58,7 @@ def parse_rows():
                 "lon": round(lon, 6),
                 "name": (row.get(COL_NAME) or "").strip(),
                 "type": (row.get(COL_TYPE) or "").strip(),
+                "tags": tags,
                 "place": (row.get(COL_PLACE) or "").strip(),
                 "comment": (row.get(COL_COMMENT) or "").strip(),
             })
@@ -74,14 +78,47 @@ HTML_TEMPLATE = """<!doctype html>
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
 <style>
   html, body { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  #map { position: absolute; top: 0; bottom: 200px; left: 0; right: 0; }
+  #map { position: absolute; top: 0; bottom: 240px; left: 0; right: 0; }
   #panel {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 200px;
+    position: absolute; bottom: 0; left: 0; right: 0; height: 240px;
     background: #1e1e1e; color: #eee; padding: 10px 16px; box-sizing: border-box;
-    display: flex; flex-direction: column; gap: 4px; z-index: 1000;
+    display: flex; flex-direction: column; gap: 6px; z-index: 1000;
     box-shadow: 0 -2px 8px rgba(0,0,0,.4);
   }
-  #row1 { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  #row1, #row2 { display: flex; align-items: center; gap: 12px; font-size: 13px; flex-wrap: wrap; }
+  .filter-group {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 8px 2px 6px;
+    background: #2a2a2a;
+    border-radius: 4px;
+  }
+  .filter-group > .lbl {
+    font-size: 11px; opacity: .7; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+    background: transparent;
+    color: #aaa;
+  }
+  .pill .swatch {
+    display: inline-block;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--col, #888);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+  }
+  .pill.active {
+    background: var(--col, #555);
+    color: #fff;
+    border-color: var(--col, #555);
+  }
+  .pill.active .swatch { background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); }
+  .pill:not(.active):hover { color: #fff; border-color: rgba(255,255,255,0.2); }
   button {
     background: #2d7; border: 0; color: #111; padding: 6px 12px;
     border-radius: 4px; cursor: pointer; font-weight: 600;
@@ -237,6 +274,16 @@ HTML_TEMPLATE = """<!doctype html>
     </label>
     <button id="play">&#9658; Play</button>
   </div>
+  <div id="row2">
+    <span class="filter-group">
+      <span class="lbl">Тип цілі</span>
+      <span id="typeFilters"></span>
+    </span>
+    <span class="filter-group">
+      <span class="lbl">Теги</span>
+      <span id="tagFilters"></span>
+    </span>
+  </div>
   <div id="scrub">
     <canvas id="hist"></canvas>
     <div id="scrub-track"></div>
@@ -331,6 +378,70 @@ document.getElementById('clearArea').addEventListener('click', () => {
   refreshSelectionFromLayers();
 });
 
+// --- type / tag filters ---
+const TYPE_COLORS = {
+  'FPV':   '#e74c3c',
+  'Крило': '#3498db',
+  'БПЛА':  '#2ecc71',
+  '':      '#888',
+};
+const TYPE_FALLBACK_PALETTE = ['#f39c12','#9b59b6','#1abc9c','#e67e22','#16a085'];
+function typeColor(t) {
+  if (t in TYPE_COLORS) return TYPE_COLORS[t];
+  // Assign on demand for any type beyond the built-in set.
+  const i = Object.keys(TYPE_COLORS).length - 4;  // excludes the 4 built-ins
+  const col = TYPE_FALLBACK_PALETTE[i % TYPE_FALLBACK_PALETTE.length];
+  TYPE_COLORS[t] = col;
+  return col;
+}
+
+const allTypes = [...new Set(EVENTS.map(e => e.type))]
+  .sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)));
+const allTags = [...new Set(EVENTS.flatMap(e => e.tags))].sort();
+
+const enabledTypes = new Set(allTypes);
+const enabledTags  = new Set(allTags);
+
+function buildPillRow(host, items, enabledSet, labelFn, colorFn, onChange) {
+  host.innerHTML = '';
+  for (const it of items) {
+    const pill = document.createElement('span');
+    pill.className = 'pill active';
+    if (colorFn) pill.style.setProperty('--col', colorFn(it));
+    if (colorFn) {
+      const sw = document.createElement('span');
+      sw.className = 'swatch';
+      sw.style.background = colorFn(it);
+      pill.appendChild(sw);
+    }
+    const txt = document.createElement('span');
+    txt.textContent = labelFn(it);
+    pill.appendChild(txt);
+    pill.addEventListener('click', () => {
+      if (enabledSet.has(it)) enabledSet.delete(it);
+      else enabledSet.add(it);
+      pill.classList.toggle('active', enabledSet.has(it));
+      onChange();
+    });
+    host.appendChild(pill);
+  }
+}
+
+buildPillRow(
+  document.getElementById('typeFilters'),
+  allTypes, enabledTypes,
+  (t) => t === '' ? '(не визначено)' : t,
+  (t) => typeColor(t),
+  () => { rebuildPool(); update(); }
+);
+buildPillRow(
+  document.getElementById('tagFilters'),
+  allTags, enabledTags,
+  (t) => t.replace(/^credibility:\s*/, 'cred · '),
+  null,
+  () => { rebuildPool(); update(); }
+);
+
 const slider = document.getElementById('slider');
 const currentLabel = document.getElementById('current');
 const countLabel = document.getElementById('count');
@@ -406,16 +517,28 @@ function recomputeHistBins() {
   }
 }
 
+function eventPassesFilters(e) {
+  if (!enabledTypes.has(e.type)) return false;
+  // A row with no tags only passes when *all* tags are enabled (i.e. user
+  // hasn't narrowed by tag) — otherwise tag-less rows would dominate.
+  if (enabledTags.size === allTags.length) return true;
+  if (!e.tags.length) return false;
+  for (const t of e.tags) if (enabledTags.has(t)) return true;
+  return false;
+}
+
 function rebuildPool() {
   const ym = monthSel.value;
-  activePool = ym ? EVENTS.filter(e => e.date.startsWith(ym)) : EVENTS;
+  const base = ym ? EVENTS.filter(e => e.date.startsWith(ym)) : EVENTS;
+  activePool = base.filter(eventPassesFilters);
   poolCount.textContent = activePool.length;
-  if (ym) {
-    const days = new Set(activePool.map(e => e.date)).size;
-    poolNote.textContent = `(${monthLabel(ym)}, ${days} day${days===1?'':'s'})`;
-  } else {
-    poolNote.textContent = `(all __DAYS__ days, __DATE_RANGE__)`;
-  }
+  const monthNote = ym
+    ? `${monthLabel(ym)}, ${new Set(activePool.map(e => e.date)).size} day${activePool.length===1?'':'s'}`
+    : `all __DAYS__ days, __DATE_RANGE__`;
+  const filterNote =
+    (enabledTypes.size === allTypes.length ? '' : ` · ${enabledTypes.size}/${allTypes.length} types`) +
+    (enabledTags.size  === allTags.length  ? '' : ` · ${enabledTags.size}/${allTags.length} tags`);
+  poolNote.textContent = `(${monthNote}${filterNote})`;
   recomputeHistBins();
   drawHistogram();
 }
@@ -497,11 +620,17 @@ function update() {
     const first = list[0];
     const n = list.length;
     const radius = 6 + Math.min(22, Math.sqrt(n) * 3.5);
+    // Colour by the most common type in this co-located group.
+    const typeCounts = {};
+    for (const e of list) typeCounts[e.type] = (typeCounts[e.type] || 0) + 1;
+    const dominantType = Object.entries(typeCounts)
+      .sort((a, b) => b[1] - a[1])[0][0];
+    const col = typeColor(dominantType);
     const marker = L.circleMarker([first.lat, first.lon], {
       radius,
-      color: '#ff3030',
+      color: col,
       weight: 1,
-      fillColor: '#ff5050',
+      fillColor: col,
       fillOpacity: 0.55,
     });
     const sorted = list.slice().sort((a, b) =>
