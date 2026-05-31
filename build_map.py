@@ -220,30 +220,39 @@ HTML_TEMPLATE = """<!doctype html>
     box-sizing: border-box;
     pointer-events: none;
   }
+  /* Slider spans the entire histogram + track band so the playhead is
+     easy to grab from anywhere in the scrub area. */
   #slider {
     position: absolute;
-    top: 53px; left: 0; right: 0;
+    top: 0; left: 0; right: 0;
     width: 100%;
     margin: 0;
     -webkit-appearance: none;
     appearance: none;
     background: transparent;
-    height: 22px;
+    height: 72px;
+    cursor: pointer;
   }
-  #slider::-webkit-slider-runnable-track { background: transparent; height: 22px; border: 0; }
-  #slider::-moz-range-track            { background: transparent; height: 22px; border: 0; }
+  #slider::-webkit-slider-runnable-track { background: transparent; height: 72px; border: 0; }
+  #slider::-moz-range-track            { background: transparent; height: 72px; border: 0; }
   #slider::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none;
-    width: 3px; height: 78px;
-    background: var(--accent); border: 0; border-radius: 0;
-    cursor: ew-resize; margin-top: -28px;
-    box-shadow: 0 0 6px rgba(255,139,61,0.6);
+    width: 3px; height: 72px;
+    background: #fff; border: 0; border-radius: 2px;
+    cursor: ew-resize;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.55),
+      0 0 8px rgba(255,255,255,0.55),
+      0 0 18px rgba(255,255,255,0.18);
   }
   #slider::-moz-range-thumb {
-    width: 3px; height: 78px;
-    background: var(--accent); border: 0; border-radius: 0;
+    width: 3px; height: 72px;
+    background: #fff; border: 0; border-radius: 2px;
     cursor: ew-resize;
-    box-shadow: 0 0 6px rgba(255,139,61,0.6);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.55),
+      0 0 8px rgba(255,255,255,0.55),
+      0 0 18px rgba(255,255,255,0.18);
   }
   #scrub-axis {
     position: absolute;
