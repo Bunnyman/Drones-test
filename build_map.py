@@ -538,6 +538,14 @@ HTML_TEMPLATE = """<!doctype html>
       <span class="group-sep"></span>
       <span class="filter-lbl">ДОСТОВІРНІСТЬ</span>
       <span id="tagFilters"></span>
+      <span class="group-sep"></span>
+      <span class="filter-lbl">ВІКНО</span>
+      <div class="win-seg" id="winSeg">
+        <button data-win="1800">30 ХВ</button>
+        <button data-win="3600" class="is-active">1 ГОД</button>
+        <button data-win="7200">2 ГОД</button>
+      </div>
+      <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
     </div>
     <div id="scrub">
       <canvas id="hist"></canvas>
@@ -546,15 +554,6 @@ HTML_TEMPLATE = """<!doctype html>
       <div class="scrub-band" id="band2" style="display:none"></div>
       <input id="slider" type="range" min="0" max="86340" value="43200" step="60">
       <div id="scrub-axis"></div>
-    </div>
-    <div class="time-bar">
-      <span class="ctrl-label">ВІКНО</span>
-      <div class="win-seg" id="winSeg">
-        <button data-win="1800">30 ХВ</button>
-        <button data-win="3600" class="is-active">1 ГОД</button>
-        <button data-win="7200">2 ГОД</button>
-      </div>
-      <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
     </div>
   </div>
 </div>
