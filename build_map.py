@@ -151,38 +151,42 @@ HTML_TEMPLATE = """<!doctype html>
   }
   .leaflet-popup-content b { font-family: var(--font-display); font-weight: 700; }
 
-  /* HUD over map (top-left) */
+  /* HUD over map (top-left) — single column. */
   .hud {
     position: absolute; top: 18px; left: 18px; z-index: 500;
     background: rgba(0,0,0,0.72); border: 1px solid var(--line);
     backdrop-filter: blur(6px);
-    padding: 18px 22px 20px; width: 320px;
+    padding: 16px 20px 18px; width: 250px;
   }
-  .hud .hr { height: 1px; background: var(--line); margin: 18px 0 16px; }
+  .hud .hr { height: 1px; background: var(--line); margin: 14px 0; }
   .hud .grid {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 18px;
+    display: flex; flex-direction: column; gap: 12px;
   }
-  .hud .cell .v {
-    font-family: var(--font-display); font-weight: 600;
-    font-size: 38px; line-height: 1;
-    letter-spacing: -0.03em; color: var(--ink);
-    font-variant-numeric: tabular-nums;
-    margin-bottom: 8px;
+  .hud .cell {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px;
   }
-  .hud .cell .v.time {
-    font-family: var(--font-mono); font-weight: 400;
-    font-size: 16px; letter-spacing: 0.04em;
-    color: var(--ink);
-  }
-  .hud .cell .v.peak { color: var(--accent-2); }
-  .hud .cell .v.low  { color: var(--dim); }
   .hud .cell .cap {
     font-family: var(--font-mono); font-size: 9.5px;
     letter-spacing: 0.16em; color: var(--dim);
     line-height: 1.3;
     text-transform: uppercase;
+    flex: 1 1 auto; min-width: 0;
   }
+  .hud .cell .v {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 28px; line-height: 1;
+    letter-spacing: -0.02em; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    flex: 0 0 auto;
+  }
+  .hud .cell .v.time {
+    font-family: var(--font-mono); font-weight: 400;
+    font-size: 14px; letter-spacing: 0.04em;
+    color: var(--ink);
+  }
+  .hud .cell .v.peak { color: var(--accent-2); }
+  .hud .cell .v.low  { color: var(--dim); }
 
   /* ── Scrubber bar ─────────────────────────────────────── */
   .scrubber {
@@ -478,23 +482,23 @@ HTML_TEMPLATE = """<!doctype html>
     <div class="hud">
       <div class="grid">
         <div class="cell">
+          <div class="cap">за добу в середньому</div>
           <div class="v" id="hudAvgDay">0</div>
-          <div class="cap">за добу<br>в середньому</div>
         </div>
         <div class="cell">
+          <div class="cap" id="hudAvgWinCap">за період в середньому</div>
           <div class="v" id="hudAvgWin">0</div>
-          <div class="cap" id="hudAvgWinCap">за період<br>в середньому</div>
         </div>
       </div>
       <div class="hr"></div>
       <div class="grid">
         <div class="cell">
+          <div class="cap">найвища активність</div>
           <div class="v time peak" id="hudPeakHigh">&mdash;</div>
-          <div class="cap">найвища<br>активність</div>
         </div>
         <div class="cell">
+          <div class="cap">найнижча активність</div>
           <div class="v time low" id="hudPeakLow">&mdash;</div>
-          <div class="cap">найнижча<br>активність</div>
         </div>
       </div>
     </div>
@@ -1248,9 +1252,9 @@ function update() {
   const avgWin = activeDays > 0 ? inAreaCount / activeDays : 0;
   elHudAvgDay.textContent = fmtAvg(avgDay);
   elHudAvgWin.textContent = fmtAvg(avgWin);
-  // Caption reflects the active timeframe (e.g. "за 11:30-12:30 / в середньому").
-  elHudAvgWinCap.innerHTML =
-    `за ${fmtTod(start)}-${fmtTod(end)}<br>в середньому`;
+  // Caption reflects the active timeframe (e.g. "за 11:30-12:30 в середньому").
+  elHudAvgWinCap.textContent =
+    `за ${fmtTod(start)}-${fmtTod(end)} в середньому`;
 
   // Always redraw the histogram so bar colours track the window.
   drawHistogram();
