@@ -282,15 +282,29 @@ HTML_TEMPLATE = """<!doctype html>
     transform: translateX(-50%); white-space: nowrap;
   }
 
-  /* Single row between title and timeline:
-     filters on the left, time controls on the right. */
-  .bottombar {
-    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    font-family: var(--font-mono);
+  /* Filter row sits above the timeline; collapsed by default and
+     toggled via the ФІЛЬТРИ button in the title row. */
+  .title-tools { display: flex; align-items: center; gap: 10px; flex: none; }
+  .title-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 26px; padding: 0 12px;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em;
+    color: var(--dim);
+    background: transparent;
+    border: 1px solid var(--line); border-radius: 999px;
+    cursor: pointer; transition: all 120ms;
   }
-  .filter-bar, .time-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .filter-bar { flex: 1 1 auto; min-width: 0; }
-  .time-bar   { flex: 0 0 auto; margin-left: auto; }
+  .title-btn:hover { color: var(--ink); border-color: rgba(255,255,255,0.25); }
+  .title-btn.is-active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .title-btn.has-filters::after {
+    content: ''; display: inline-block;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    margin-left: 2px;
+  }
+
+  .filter-bar { display: none; align-items: center; gap: 14px; flex-wrap: wrap; padding: 4px 0 2px; }
+  .filter-bar.open { display: flex; }
   .filter-bar .filter-lbl {
     font-size: 9.5px; letter-spacing: 0.16em;
     color: var(--dimmer); text-transform: uppercase;
@@ -299,6 +313,7 @@ HTML_TEMPLATE = """<!doctype html>
   .filter-bar .group-sep {
     width: 1px; height: 14px; background: var(--line); margin: 0 4px;
   }
+  .time-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
   .play {
     display: inline-flex; align-items: center; gap: 7px;
@@ -512,7 +527,17 @@ HTML_TEMPLATE = """<!doctype html>
         <div class="month" id="scrubTitle">АКТИВНІСТЬ</div>
         <span class="clock-inline" id="clock">__DAYS__ ДНІВ · __DATE_RANGE__</span>
       </div>
-      <select class="topbar-select" id="monthSel"></select>
+      <div class="title-tools">
+        <button id="filterToggle" class="title-btn">ФІЛЬТРИ <span id="filterChev">&#9662;</span></button>
+        <select class="topbar-select" id="monthSel"></select>
+      </div>
+    </div>
+    <div class="filter-bar" id="filterBar">
+      <span class="filter-lbl">ТИП</span>
+      <span id="typeFilters"></span>
+      <span class="group-sep"></span>
+      <span class="filter-lbl">ДОСТОВІРНІСТЬ</span>
+      <span id="tagFilters"></span>
     </div>
     <div id="scrub">
       <canvas id="hist"></canvas>
@@ -522,23 +547,14 @@ HTML_TEMPLATE = """<!doctype html>
       <input id="slider" type="range" min="0" max="86340" value="43200" step="60">
       <div id="scrub-axis"></div>
     </div>
-    <div class="bottombar">
-      <div class="filter-bar">
-        <span class="filter-lbl">ТИП</span>
-        <span id="typeFilters"></span>
-        <span class="group-sep"></span>
-        <span class="filter-lbl">ДОСТОВІРНІСТЬ</span>
-        <span id="tagFilters"></span>
+    <div class="time-bar">
+      <span class="ctrl-label">ВІКНО</span>
+      <div class="win-seg" id="winSeg">
+        <button data-win="1800">30 ХВ</button>
+        <button data-win="3600" class="is-active">1 ГОД</button>
+        <button data-win="7200">2 ГОД</button>
       </div>
-      <div class="time-bar">
-        <span class="ctrl-label">ВІКНО</span>
-        <div class="win-seg" id="winSeg">
-          <button data-win="1800">30 ХВ</button>
-          <button data-win="3600" class="is-active">1 ГОД</button>
-          <button data-win="7200">2 ГОД</button>
-        </div>
-        <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
-      </div>
+      <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
     </div>
   </div>
 </div>
@@ -801,13 +817,18 @@ function buildPillRow(host, items, enabledSet, labelFn, colorFn, extraClass, onC
   }
 }
 
+function onFiltersChanged() {
+  refreshFilterToggleBadge();
+  rebuildPool();
+  update();
+}
 buildPillRow(
   document.getElementById('typeFilters'),
   allTypes, enabledTypes,
   (t) => (t === '' ? 'НЕ ВИЗНАЧЕНО' : t.toUpperCase()),
   (t) => typeColor(t),
   'type',
-  () => { rebuildPool(); update(); }
+  onFiltersChanged
 );
 const CRED_LABEL = {
   'credibility: high':   'ВИСОКА',
@@ -820,8 +841,26 @@ buildPillRow(
   (t) => CRED_LABEL[t.toLowerCase()] || t.toUpperCase(),
   null,
   'tag',
-  () => { rebuildPool(); update(); }
+  onFiltersChanged
 );
+
+// --- collapsible filters toggle ---
+const filterToggle = document.getElementById('filterToggle');
+const filterBar    = document.getElementById('filterBar');
+const filterChev   = document.getElementById('filterChev');
+filterToggle.addEventListener('click', () => {
+  const open = !filterBar.classList.contains('open');
+  filterBar.classList.toggle('open', open);
+  filterToggle.classList.toggle('is-active', open);
+  filterChev.innerHTML = open ? '&#9652;' : '&#9662;';
+});
+function refreshFilterToggleBadge() {
+  const narrowed =
+    enabledTypes.size < allTypes.length ||
+    enabledTags.size  < allTags.length;
+  filterToggle.classList.toggle('has-filters', narrowed);
+}
+refreshFilterToggleBadge();
 
 const slider = document.getElementById('slider');
 const monthSel = document.getElementById('monthSel');
