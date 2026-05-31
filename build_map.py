@@ -68,127 +68,184 @@ def parse_rows():
 
 
 HTML_TEMPLATE = """<!doctype html>
-<html lang="en">
+<html lang="uk">
 <head>
 <meta charset="utf-8">
-<title>Drone events &mdash; time scrubber</title>
+<title>Хронологія БПЛА &mdash; скрабер</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Geist:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
 <style>
-  html, body { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  #map { position: absolute; top: 0; bottom: 240px; left: 0; right: 0; }
-  #panel {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 240px;
-    background: #1e1e1e; color: #eee; padding: 10px 16px; box-sizing: border-box;
-    display: flex; flex-direction: column; gap: 6px; z-index: 1000;
-    box-shadow: 0 -2px 8px rgba(0,0,0,.4);
+  :root {
+    --ink: #f5f5f3;
+    --dim: #9a9b95;
+    --dimmer: #62635d;
+    --line: rgba(255,255,255,0.08);
+    --accent: #ff8b3d;
+    --accent-soft: rgba(255,139,61,0.13);
+    --accent-2: #6db6ff;
+    --bar-dim: rgba(150,160,175,0.40);
+    --font-display: 'Geist', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   }
-  #row1, #row2 { display: flex; align-items: center; gap: 12px; font-size: 13px; flex-wrap: wrap; }
-  .filter-group {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 2px 8px 2px 6px;
-    background: #2a2a2a;
-    border-radius: 4px;
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: var(--font-display);
+    color: var(--ink);
+    background: #000;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
   }
-  .filter-group > .lbl {
-    font-size: 11px; opacity: .7; text-transform: uppercase; letter-spacing: .04em;
-  }
-  .pill {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 8px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    font-size: 12px;
-    cursor: pointer;
-    user-select: none;
-    background: transparent;
-    color: #aaa;
-  }
-  .pill .swatch {
-    display: inline-block;
-    width: 9px; height: 9px; border-radius: 50%;
-    background: var(--col, #888);
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
-  }
-  .pill.active {
-    background: var(--col, #555);
-    color: #fff;
-    border-color: var(--col, #555);
-  }
-  .pill.active .swatch { background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); }
-  .pill:not(.active):hover { color: #fff; border-color: rgba(255,255,255,0.2); }
-  button {
-    background: #2d7; border: 0; color: #111; padding: 6px 12px;
-    border-radius: 4px; cursor: pointer; font-weight: 600;
-  }
-  button:hover { background: #5fb; }
-  #current { font-weight: 600; min-width: 220px; }
-  #count { color: #5fb; font-weight: 600; }
-  #peak { color: #aaa; font-size: 12px; margin-left: auto; }
-  #areaStatus {
-    display: none;
-    background: rgba(95, 255, 180, 0.18);
-    border: 1px solid #5fb;
-    color: #cfe;
-    padding: 2px 8px;
-    border-radius: 3px;
-    font-size: 12px;
-  }
-  #areaStatus a {
-    color: #fff;
-    margin-left: 6px;
-    cursor: pointer;
-    text-decoration: underline;
-  }
-  #areaStatus.active { display: inline-block; }
-  select { background: #333; color: #eee; border: 1px solid #555; padding: 4px; border-radius: 3px; }
-  label { font-size: 12px; opacity: .8; }
+  .stage { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; }
 
-  /* --- scrubber --- */
-  /* Layout (y, top-aligned):
-       0..60   histogram canvas
-      60..72   slider track (12 px)
-      55..77   slider thumb (22 px, vertically centred on track)
-      78..100  axis ticks + hour labels
-     The window band is overlaid on top, spanning histogram + track. */
+  /* ── Header strip ─────────────────────────────────────── */
+  .topbar {
+    height: 60px; flex: none;
+    padding: 0 clamp(16px, 2.4vw, 36px);
+    display: flex; align-items: center; gap: 28px;
+    border-bottom: 1px solid var(--line);
+    background: #000; z-index: 600;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; flex: none; }
+  .brand-glyph {
+    position: relative; width: 30px; height: 26px;
+    border: 1.5px solid var(--ink); display: grid; place-items: center;
+    clip-path: polygon(0 0, 100% 0, 100% 70%, 78% 100%, 0 100%);
+  }
+  .brand-glyph span {
+    font-family: 'Space Grotesk', sans-serif; font-weight: 800;
+    font-size: 12px; letter-spacing: 0.04em; line-height: 1; margin-left: -2px;
+  }
+  .brand-name {
+    font-family: 'Space Grotesk', sans-serif; font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.22em; line-height: 1.2;
+  }
+  .status { display: flex; align-items: center; gap: 28px; flex: 1; min-width: 0; overflow: hidden; }
+  .stat-item { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+  .stat-item .k { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.16em; color: var(--dim); }
+  .stat-item .v { font-family: var(--font-mono); font-size: 14px; letter-spacing: 0.04em; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .stat-item .v.accent { color: var(--accent); font-weight: 600; }
+  .stat-item .v.peak { color: var(--accent-2); }
+  .divider { width: 1px; height: 22px; background: var(--line); }
+  .clock { font-family: var(--font-mono); font-size: 12px; color: var(--dimmer); letter-spacing: 0.12em; flex: none; }
+  .topbar-select {
+    font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.04em;
+    background: transparent; color: var(--ink); border: 1px solid var(--line);
+    padding: 4px 8px; cursor: pointer;
+  }
+  .topbar-select option { background: #111; color: var(--ink); }
+
+  /* ── Map area ─────────────────────────────────────────── */
+  .mapwrap { position: relative; flex: 1; min-height: 0; }
+  #map { position: absolute; inset: 0; background: #000; }
+  .leaflet-container { background: #000; outline: none; font-family: var(--font-mono); }
+  .leaflet-control-attribution {
+    background: rgba(0,0,0,0.6) !important; color: rgba(255,255,255,0.5) !important;
+    font-family: var(--font-mono); font-size: 9px; padding: 2px 6px;
+  }
+  .leaflet-control-attribution a { color: rgba(255,255,255,0.7) !important; }
+  .leaflet-control-zoom a {
+    background: rgba(0,0,0,0.7) !important; color: var(--ink) !important;
+    border: 1px solid var(--line) !important;
+  }
+  /* Leaflet.draw toolbar restyle */
+  .leaflet-draw-toolbar a, .leaflet-draw-actions a {
+    background-color: rgba(0,0,0,0.7) !important;
+    border-color: var(--line) !important;
+    color: var(--ink) !important;
+  }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: #111; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 0; font-family: var(--font-mono); font-size: 11px;
+  }
+  .leaflet-popup-content b { font-family: var(--font-display); font-weight: 700; }
+
+  /* HUD over map (top-left) */
+  .hud {
+    position: absolute; top: 18px; left: 18px; z-index: 500;
+    background: rgba(0,0,0,0.72); border: 1px solid var(--line);
+    backdrop-filter: blur(6px);
+    padding: 18px 22px 20px; width: 260px;
+  }
+  .hud .lbl { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.18em; color: var(--dim); }
+  .hud .huge {
+    font-family: var(--font-display); font-weight: 600; font-size: 72px;
+    line-height: 0.92; letter-spacing: -0.04em; color: var(--ink);
+    font-variant-numeric: tabular-nums; margin: 8px 0 2px;
+  }
+  .hud .sub { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; color: var(--dim); }
+  .hud .sub b { color: var(--accent); font-weight: 600; }
+  .hud .hr { height: 1px; background: var(--line); margin: 16px 0 14px; }
+  .hud .mini { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .hud .mini:last-child { margin-bottom: 0; }
+  .hud .mini .mk { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em; color: var(--dimmer); }
+  .hud .mini .mv { font-family: var(--font-mono); font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .hud .mini .mv.peak { color: var(--accent-2); }
+  .hud .mini .mv.area { color: var(--accent); }
+
+  /* Legend (top-right) — uses type colours */
+  .legend {
+    position: absolute; top: 18px; right: 18px; z-index: 500;
+    background: rgba(0,0,0,0.72); border: 1px solid var(--line);
+    padding: 12px 16px; font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.1em; color: var(--dim); display: flex; flex-direction: column; gap: 8px;
+    min-width: 130px;
+  }
+  .legend .head { font-size: 9.5px; letter-spacing: 0.18em; color: var(--dimmer); margin-bottom: 2px; }
+  .legend .li { display: flex; align-items: center; gap: 9px; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+
+  /* ── Scrubber bar ─────────────────────────────────────── */
+  .scrubber {
+    flex: none; background: #000; border-top: 1px solid var(--line);
+    padding: 14px clamp(16px, 2.4vw, 36px) 16px;
+    display: flex; flex-direction: column; gap: 10px; z-index: 600;
+  }
+  .track-head { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
+  .track-head .month { font-family: var(--font-display); font-weight: 700; font-size: 13px; letter-spacing: 0.16em; color: var(--ink); }
+  .track-head .hint { font-family: var(--font-mono); font-size: 10.5px; color: var(--dimmer); letter-spacing: 0.1em; }
+
+  /* Slider/histogram block (keeps existing markup, sharpened style) */
   #scrub {
     position: relative;
-    height: 105px;
-    margin-top: 4px;
+    height: 96px;
   }
   #hist {
     position: absolute;
     top: 0; left: 7px;
     width: calc(100% - 14px);
     height: 60px;
-    background: #181818;
-    border-radius: 4px 4px 0 0;
+    background: transparent;
     display: block;
   }
   #scrub-track {
     position: absolute;
     top: 60px; left: 7px;
     width: calc(100% - 14px);
-    height: 12px;
-    background: #333;
-    border-radius: 0 0 4px 4px;
+    height: 8px;
+    background: rgba(255,255,255,0.05);
+    border-top: 1px solid var(--line);
     overflow: hidden;
   }
   .scrub-band {
     position: absolute;
     top: 0;
-    height: 72px;            /* hist (60) + track (12) */
-    background: rgba(255, 255, 255, 0.10);
-    border-left: 2px solid #fff;
-    border-right: 2px solid #fff;
+    height: 68px;
+    background: var(--accent-soft);
+    border-left: 1px solid var(--accent);
+    border-right: 1px solid var(--accent);
     box-sizing: border-box;
     pointer-events: none;
   }
   #slider {
     position: absolute;
-    top: 55px; left: 0; right: 0;
+    top: 53px; left: 0; right: 0;
     width: 100%;
     margin: 0;
     -webkit-appearance: none;
@@ -196,101 +253,200 @@ HTML_TEMPLATE = """<!doctype html>
     background: transparent;
     height: 22px;
   }
-  #slider::-webkit-slider-runnable-track {
-    background: transparent;
-    height: 22px;
-    border: 0;
-  }
-  #slider::-moz-range-track {
-    background: transparent;
-    height: 22px;
-    border: 0;
-  }
+  #slider::-webkit-slider-runnable-track { background: transparent; height: 22px; border: 0; }
+  #slider::-moz-range-track            { background: transparent; height: 22px; border: 0; }
   #slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 14px;
-    height: 22px;
-    background: #fff;
-    border: 1px solid #000;
-    border-radius: 3px;
-    cursor: pointer;
-    box-shadow: 0 0 4px rgba(0,0,0,.6);
+    -webkit-appearance: none; appearance: none;
+    width: 3px; height: 78px;
+    background: var(--accent); border: 0; border-radius: 0;
+    cursor: ew-resize; margin-top: -28px;
+    box-shadow: 0 0 6px rgba(255,139,61,0.6);
   }
   #slider::-moz-range-thumb {
-    width: 14px;
-    height: 22px;
-    background: #fff;
-    border: 1px solid #000;
-    border-radius: 3px;
-    cursor: pointer;
-    box-shadow: 0 0 4px rgba(0,0,0,.6);
+    width: 3px; height: 78px;
+    background: var(--accent); border: 0; border-radius: 0;
+    cursor: ew-resize;
+    box-shadow: 0 0 6px rgba(255,139,61,0.6);
   }
   #scrub-axis {
     position: absolute;
-    top: 78px; left: 7px; right: 7px;
+    top: 72px; left: 7px; right: 7px;
     height: 24px;
     pointer-events: none;
   }
-  .scrub-tick {
-    position: absolute;
-    width: 1px;
-    background: #777;
-    top: 0;
-    transform: translateX(-0.5px);
-  }
-  .scrub-tick.major { height: 8px; background: #aaa; }
-  .scrub-tick.minor { height: 4px; }
+  .scrub-tick { position: absolute; width: 1px; background: rgba(255,255,255,0.12); top: 0; transform: translateX(-0.5px); }
+  .scrub-tick.major { height: 6px; background: rgba(255,255,255,0.32); }
+  .scrub-tick.minor { height: 3px; }
   .scrub-label {
-    position: absolute;
-    top: 10px;
-    font-size: 11px;
-    color: #bbb;
-    transform: translateX(-50%);
-    white-space: nowrap;
+    position: absolute; top: 8px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--dimmer); letter-spacing: 0.08em;
+    transform: translateX(-50%); white-space: nowrap;
   }
+
+  /* Controls row */
+  .controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .play {
+    display: inline-flex; align-items: center; gap: 11px;
+    font-family: var(--font-display); font-weight: 700; font-size: 13px;
+    letter-spacing: 0.14em; padding: 11px 22px;
+    background: var(--accent); color: #1a0f06; border: 0; cursor: pointer; transition: background 120ms;
+  }
+  .play:hover { background: #ff9d5a; }
+  .play .icon { font-size: 11px; }
+  .ctrl-label { font-family: var(--font-mono); font-size: 10.5px; color: var(--dimmer); letter-spacing: 0.14em; }
+  .win-seg { display: flex; gap: 6px; }
+  .win-seg button {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: 0.1em;
+    padding: 10px 16px; border: 1px solid var(--line); background: rgba(255,255,255,0.03);
+    color: var(--dim); cursor: pointer; transition: all 120ms;
+  }
+  .win-seg button:hover { color: var(--ink); }
+  .win-seg button.is-active { background: rgba(255,139,61,0.14); border-color: var(--accent); color: var(--accent); }
+  .ghost-btn {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em;
+    background: transparent; border: 1px solid var(--line); color: var(--dim);
+    padding: 10px 14px; cursor: pointer; transition: all 120ms;
+  }
+  .ghost-btn:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
+  #areaStatus {
+    display: none;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em;
+    padding: 9px 12px;
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  #areaStatus.active { display: inline-flex; align-items: center; gap: 10px; }
+  #areaStatus a { color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+
+  .readout { margin-left: auto; text-align: right; }
+  .readout .range { font-family: var(--font-mono); font-size: 15px; color: var(--ink); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+  .readout .speed { font-family: var(--font-mono); font-size: 10px; color: var(--dimmer); letter-spacing: 0.12em; margin-top: 4px; }
+
+  /* Filter pill rows */
+  .filter-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .filter-group {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.02);
+  }
+  .filter-group > .lbl {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.18em;
+    color: var(--dimmer); text-transform: uppercase;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    border: 1px solid var(--line);
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+    cursor: pointer; user-select: none;
+    background: transparent; color: var(--dim);
+    transition: all 120ms;
+  }
+  .pill .swatch {
+    display: inline-block; width: 9px; height: 9px;
+    background: var(--col, var(--dimmer));
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.12);
+  }
+  .pill:hover { color: var(--ink); }
+  .pill.active {
+    color: var(--ink);
+    border-color: var(--col, var(--accent));
+    background: rgba(255,255,255,0.04);
+  }
+  .pill.active .swatch { box-shadow: 0 0 0 1px rgba(255,255,255,0.4); }
+  .pill.tag.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 </style>
 </head>
 <body>
-<div id="map"></div>
-<div id="panel">
-  <div id="row1">
-    <span id="current">&mdash;</span>
-    <span>In window: <span id="count">0</span> /
-      <span id="poolCount">__TOTAL__</span>
-      <span id="poolNote">(all __DAYS__ days, __DATE_RANGE__)</span></span>
-    <span id="areaStatus">&#9633; Area selected
-      <a id="clearArea">clear</a></span>
-    <span id="peak">Peak: &mdash;</span>
-    <label>Month:
-      <select id="monthSel"></select>
-    </label>
-    <label>Window:
-      <select id="window">
-        <option value="1800">30 min</option>
-        <option value="3600" selected>1 hour</option>
-        <option value="7200">2 hours</option>
-      </select>
-    </label>
-    <button id="play">&#9658; Play</button>
+<div class="stage">
+  <!-- Header -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-glyph"><span>EW</span></div>
+      <div class="brand-name">DRONE<br/>TIMELINE</div>
+    </div>
+    <div class="status">
+      <div class="stat-item">
+        <span class="k">У ВІКНІ</span>
+        <span class="v accent" id="inWindow">0</span>
+        <span class="v" style="color:var(--dimmer)">/ <span id="totalEvents">__TOTAL__</span></span>
+      </div>
+      <div class="divider"></div>
+      <div class="stat-item">
+        <span class="k">ПІК</span>
+        <span class="v peak" id="peakVal">&mdash;</span>
+      </div>
+      <div class="divider"></div>
+      <div class="stat-item">
+        <span class="k">МІСЯЦЬ</span>
+        <select class="topbar-select" id="monthSel"></select>
+      </div>
+    </div>
+    <div class="clock" id="clock">__DAYS__ ДНІВ · __DATE_RANGE__</div>
   </div>
-  <div id="row2">
-    <span class="filter-group">
-      <span class="lbl">Тип цілі</span>
-      <span id="typeFilters"></span>
-    </span>
-    <span class="filter-group">
-      <span class="lbl">Теги</span>
-      <span id="tagFilters"></span>
-    </span>
+
+  <!-- Map -->
+  <div class="mapwrap">
+    <div id="map"></div>
+
+    <div class="hud">
+      <div class="lbl">ПОДІЙ У ВІКНІ</div>
+      <div class="huge" id="hudBig">0</div>
+      <div class="sub">з <span id="hudPool">__TOTAL__</span> · <b id="hudPct">0%</b></div>
+      <div class="hr"></div>
+      <div class="mini"><span class="mk">ПІК ЗА ДОБОЮ</span><span class="mv peak" id="hudPeak">0</span></div>
+      <div class="mini"><span class="mk">ПІК О</span><span class="mv" id="hudPeakTime">&mdash;</span></div>
+      <div class="mini"><span class="mk">ОБЛАСТЬ</span><span class="mv area" id="hudArea">ВИДИМА ЗОНА</span></div>
+    </div>
+
+    <div class="legend" id="typeLegend">
+      <div class="head">ТИП ЦІЛІ</div>
+    </div>
   </div>
-  <div id="scrub">
-    <canvas id="hist"></canvas>
-    <div id="scrub-track"></div>
-    <div class="scrub-band" id="band1"></div>
-    <div class="scrub-band" id="band2" style="display:none"></div>
-    <input id="slider" type="range" min="0" max="86340" value="0" step="60">
-    <div id="scrub-axis"></div>
+
+  <!-- Scrubber -->
+  <div class="scrubber">
+    <div class="track-head">
+      <div class="month" id="scrubTitle">ХРОНОЛОГІЯ ДОБИ · 00:00 — 24:00</div>
+      <div class="hint">ПЕРЕТЯГНІТЬ ПОВЗУНОК · ПРОБІЛ — ВІДТВОРЕННЯ · ← →  КРОК</div>
+    </div>
+    <div id="scrub">
+      <canvas id="hist"></canvas>
+      <div id="scrub-track"></div>
+      <div class="scrub-band" id="band1"></div>
+      <div class="scrub-band" id="band2" style="display:none"></div>
+      <input id="slider" type="range" min="0" max="86340" value="0" step="60">
+      <div id="scrub-axis"></div>
+    </div>
+    <div class="controls">
+      <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
+      <span class="ctrl-label">ВІКНО</span>
+      <div class="win-seg" id="winSeg">
+        <button data-win="1800">30 ХВ</button>
+        <button data-win="3600" class="is-active">1 ГОД</button>
+        <button data-win="7200">2 ГОД</button>
+      </div>
+      <button class="ghost-btn" id="resetBtn">00:00</button>
+      <span id="areaStatus">&#9633; ОБЛАСТЬ ВИЗНАЧЕНА
+        <a id="clearArea">скинути</a></span>
+      <div class="readout">
+        <div class="range" id="winRange">&mdash;</div>
+        <div class="speed">ДОБА ЗА ~19 С</div>
+      </div>
+    </div>
+    <div class="filter-row">
+      <span class="filter-group">
+        <span class="lbl">ТИП ЦІЛІ</span>
+        <span id="typeFilters"></span>
+      </span>
+      <span class="filter-group">
+        <span class="lbl">ТЕГИ</span>
+        <span id="tagFilters"></span>
+      </span>
+    </div>
   </div>
 </div>
 
@@ -300,10 +456,17 @@ HTML_TEMPLATE = """<!doctype html>
 <script>
 const EVENTS = __DATA__;
 
-const map = L.map('map', { preferCanvas: true });
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 18,
-  attribution: '&copy; OpenStreetMap'
+const map = L.map('map', {
+  preferCanvas: true,
+  zoomControl: true,
+  attributionControl: true,
+});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+  maxZoom: 19, subdomains: 'abcd',
+  attribution: '&copy; OpenStreetMap &copy; CARTO',
+}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+  maxZoom: 19, subdomains: 'abcd', pane: 'shadowPane', attribution: '',
 }).addTo(map);
 
 // Fit to all event bounds initially.
@@ -327,8 +490,8 @@ const drawControl = new L.Control.Draw({
     circle: false,
     circlemarker: false,
     marker: false,
-    rectangle: { shapeOptions: { color: '#5fb', weight: 2, fillOpacity: 0.05 } },
-    polygon: { shapeOptions: { color: '#5fb', weight: 2, fillOpacity: 0.05 },
+    rectangle: { shapeOptions: { color: '#ff8b3d', weight: 2, fillOpacity: 0.05 } },
+    polygon: { shapeOptions: { color: '#ff8b3d', weight: 2, fillOpacity: 0.05 },
                allowIntersection: false, showArea: false }
   },
   edit: { featureGroup: drawnItems, edit: true, remove: true }
@@ -361,6 +524,8 @@ function refreshSelectionFromLayers() {
     selectionPolygon = ll.map(p => [p.lat, p.lng]);
   }
   document.getElementById('areaStatus').classList.toggle('active', !!selectionPolygon);
+  const hudArea = document.getElementById('hudArea');
+  hudArea.textContent = selectionPolygon ? 'ВЛАСНА ОБЛАСТЬ' : 'ВИДИМА ЗОНА';
   recomputeHistBins();
   drawHistogram();
   update();
@@ -380,12 +545,12 @@ document.getElementById('clearArea').addEventListener('click', () => {
 
 // --- type / tag filters ---
 const TYPE_COLORS = {
-  'FPV':   '#e74c3c',
-  'Крило': '#3498db',
-  'БПЛА':  '#2ecc71',
-  '':      '#888',
+  'FPV':   '#ff8b3d',
+  'Крило': '#6db6ff',
+  'БПЛА':  '#a6e22e',
+  '':      '#62635d',
 };
-const TYPE_FALLBACK_PALETTE = ['#f39c12','#9b59b6','#1abc9c','#e67e22','#16a085'];
+const TYPE_FALLBACK_PALETTE = ['#f5d76e','#c780ff','#5be7c4','#ff7a90','#7ad7ff'];
 function typeColor(t) {
   if (t in TYPE_COLORS) return TYPE_COLORS[t];
   // Assign on demand for any type beyond the built-in set.
@@ -402,13 +567,13 @@ const allTags = [...new Set(EVENTS.flatMap(e => e.tags))].sort();
 const enabledTypes = new Set(allTypes);
 const enabledTags  = new Set(allTags);
 
-function buildPillRow(host, items, enabledSet, labelFn, colorFn, onChange) {
+function buildPillRow(host, items, enabledSet, labelFn, colorFn, extraClass, onChange) {
   host.innerHTML = '';
   for (const it of items) {
     const pill = document.createElement('span');
-    pill.className = 'pill active';
-    if (colorFn) pill.style.setProperty('--col', colorFn(it));
+    pill.className = 'pill active' + (extraClass ? ' ' + extraClass : '');
     if (colorFn) {
+      pill.style.setProperty('--col', colorFn(it));
       const sw = document.createElement('span');
       sw.className = 'swatch';
       sw.style.background = colorFn(it);
@@ -430,42 +595,82 @@ function buildPillRow(host, items, enabledSet, labelFn, colorFn, onChange) {
 buildPillRow(
   document.getElementById('typeFilters'),
   allTypes, enabledTypes,
-  (t) => t === '' ? '(не визначено)' : t,
+  (t) => (t === '' ? 'НЕ ВИЗНАЧЕНО' : t.toUpperCase()),
   (t) => typeColor(t),
+  'type',
   () => { rebuildPool(); update(); }
 );
 buildPillRow(
   document.getElementById('tagFilters'),
   allTags, enabledTags,
-  (t) => t.replace(/^credibility:\s*/, 'cred · '),
+  (t) => t.replace(/^credibility:\s*/i, 'CRED · ').toUpperCase(),
   null,
+  'tag',
   () => { rebuildPool(); update(); }
 );
 
+// --- legend (top-right) ---
+(function buildLegend() {
+  const host = document.getElementById('typeLegend');
+  for (const t of allTypes) {
+    const row = document.createElement('div');
+    row.className = 'li';
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = typeColor(t);
+    row.appendChild(dot);
+    const lbl = document.createElement('span');
+    lbl.textContent = (t === '' ? 'НЕ ВИЗНАЧЕНО' : t.toUpperCase());
+    row.appendChild(lbl);
+    host.appendChild(row);
+  }
+})();
+
 const slider = document.getElementById('slider');
-const currentLabel = document.getElementById('current');
-const countLabel = document.getElementById('count');
-const poolCount = document.getElementById('poolCount');
-const poolNote = document.getElementById('poolNote');
-const windowSel = document.getElementById('window');
 const monthSel = document.getElementById('monthSel');
 const playBtn = document.getElementById('play');
+const playLabel = document.getElementById('playLabel');
+const resetBtn = document.getElementById('resetBtn');
 const band1 = document.getElementById('band1');
 const band2 = document.getElementById('band2');
 const axis = document.getElementById('scrub-axis');
 const histCanvas = document.getElementById('hist');
-const peakLabel = document.getElementById('peak');
+const winSeg = document.getElementById('winSeg');
+
+// All stat outputs (some appear in topbar, HUD and readout).
+const elInWindow   = document.getElementById('inWindow');
+const elTotal      = document.getElementById('totalEvents');
+const elHudBig     = document.getElementById('hudBig');
+const elHudPool    = document.getElementById('hudPool');
+const elHudPct     = document.getElementById('hudPct');
+const elPeakVal    = document.getElementById('peakVal');
+const elHudPeak    = document.getElementById('hudPeak');
+const elHudPeakTime= document.getElementById('hudPeakTime');
+const elWinRange   = document.getElementById('winRange');
+const elClock      = document.getElementById('clock');
+
+// Window-size segmented control. Read the currently active button.
+function currentWindow() {
+  const b = winSeg.querySelector('button.is-active');
+  return b ? parseInt(b.dataset.win, 10) : 3600;
+}
+winSeg.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-win]');
+  if (!b) return;
+  winSeg.querySelectorAll('button').forEach(x => x.classList.toggle('is-active', x === b));
+  update();
+});
 
 // --- Month selector: "All time" plus every YYYY-MM present in data. ---
 const monthSet = new Set(EVENTS.map(e => e.date.slice(0, 7)));
 const months = [...monthSet].sort();
-const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTH_UA = ['СІЧ','ЛЮТ','БЕР','КВІ','ТРАВ','ЧЕР','ЛИП','СЕР','ВЕР','ЖОВ','ЛИС','ГРУ'];
 function monthLabel(ym) {
   const [y, m] = ym.split('-');
-  return `${MONTH_NAMES[parseInt(m,10)-1]} ${y}`;
+  return `${MONTH_UA[parseInt(m,10)-1]} ${y}`;
 }
 const optAll = document.createElement('option');
-optAll.value = ''; optAll.textContent = 'All time';
+optAll.value = ''; optAll.textContent = 'ВСІ МІСЯЦІ';
 monthSel.appendChild(optAll);
 for (const ym of months) {
   const o = document.createElement('option');
@@ -531,14 +736,13 @@ function rebuildPool() {
   const ym = monthSel.value;
   const base = ym ? EVENTS.filter(e => e.date.startsWith(ym)) : EVENTS;
   activePool = base.filter(eventPassesFilters);
-  poolCount.textContent = activePool.length;
-  const monthNote = ym
-    ? `${monthLabel(ym)}, ${new Set(activePool.map(e => e.date)).size} day${activePool.length===1?'':'s'}`
-    : `all __DAYS__ days, __DATE_RANGE__`;
-  const filterNote =
-    (enabledTypes.size === allTypes.length ? '' : ` · ${enabledTypes.size}/${allTypes.length} types`) +
-    (enabledTags.size  === allTags.length  ? '' : ` · ${enabledTags.size}/${allTags.length} tags`);
-  poolNote.textContent = `(${monthNote}${filterNote})`;
+  const poolN = activePool.length;
+  elTotal.textContent  = poolN.toLocaleString('uk-UA');
+  elHudPool.textContent = poolN.toLocaleString('uk-UA');
+  const ymDays = new Set(activePool.map(e => e.date)).size;
+  elClock.textContent = ym
+    ? `${monthLabel(ym)} · ${ymDays} ДНІВ`
+    : `__DAYS__ ДНІВ · __DATE_RANGE__`;
   recomputeHistBins();
   drawHistogram();
 }
@@ -558,16 +762,21 @@ function drawHistogram() {
   const padTop = 4 * dpr;
   const innerH = H - padTop;
 
-  // Faint horizontal grid lines at 25/50/75/100 % of max.
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  const start = parseInt(slider.value, 10);
+  const win   = currentWindow();
+  const end   = start + win;
+  const inWindowTod = (tod) =>
+    end <= 86400 ? (tod >= start && tod < end) : (tod >= start || tod < (end - 86400));
+
+  // Day-grid: light lines every 3 h.
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
   ctx.lineWidth = 1;
-  for (let g = 1; g <= 4; g++) {
-    const y = Math.round(padTop + innerH - (g / 4) * innerH) + 0.5;
-    ctx.beginPath();
-    ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  for (let h = 0; h <= 24; h += 3) {
+    const x = Math.round((h / 24) * W) + 0.5;
+    ctx.beginPath(); ctx.moveTo(x, 2); ctx.lineTo(x, H - 1); ctx.stroke();
   }
 
-  // Bars.
+  // Bars: dim grey outside the window, orange inside.
   let peakBin = -1, peakCount = 0;
   for (let i = 0; i < HIST_BINS; i++) {
     if (histBins[i] > peakCount) { peakCount = histBins[i]; peakBin = i; }
@@ -578,25 +787,41 @@ function drawHistogram() {
     const w  = Math.max(1, x1 - x0 - 1);
     const barH = Math.max(1, Math.round(v * innerH));
     const y    = padTop + innerH - barH;
-    // Solid cyan bars; brighter when taller.
-    const alpha = 0.55 + 0.45 * v;
-    ctx.fillStyle = `rgba(95, 200, 255, ${alpha})`;
+    const binMidTod = (i + 0.5) * HIST_BIN_SECS;
+    ctx.fillStyle = inWindowTod(binMidTod) ? '#ff8b3d' : 'rgba(150,160,175,0.40)';
     ctx.fillRect(x0, y, w, barH);
   }
 
+  // Peak marker (blue triangle + dashed line).
   if (peakCount > 0) {
     const peakStart = peakBin * HIST_BIN_SECS;
-    peakLabel.textContent =
-      `Peak: ${fmtTod(peakStart)}–${fmtTod(peakStart + HIST_BIN_SECS)} ` +
-      `(${peakCount} event${peakCount===1?'':'s'})`;
+    const peakCenter = peakStart + HIST_BIN_SECS / 2;
+    const pcx = (peakCenter / 86400) * W;
+    ctx.fillStyle = 'rgba(109,182,255,0.95)';
+    ctx.beginPath();
+    ctx.moveTo(pcx, padTop);
+    ctx.moveTo(pcx, padTop + 2);
+    ctx.lineTo(pcx - 5 * dpr, padTop - 5 * dpr);
+    ctx.lineTo(pcx + 5 * dpr, padTop - 5 * dpr);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(109,182,255,0.40)';
+    ctx.setLineDash([3 * dpr, 4 * dpr]);
+    ctx.beginPath(); ctx.moveTo(pcx, padTop); ctx.lineTo(pcx, H); ctx.stroke();
+    ctx.setLineDash([]);
+
+    elPeakVal.textContent = peakCount.toLocaleString('uk-UA');
+    elHudPeak.textContent = peakCount.toLocaleString('uk-UA');
+    elHudPeakTime.textContent = `${fmtTod(peakStart)}–${fmtTod(peakStart + HIST_BIN_SECS)}`;
   } else {
-    peakLabel.textContent = 'Peak: — (no events in view)';
+    elPeakVal.textContent = '—';
+    elHudPeak.textContent = '0';
+    elHudPeakTime.textContent = '—';
   }
 }
 
 function update() {
   const start = parseInt(slider.value, 10);
-  const win = parseInt(windowSel.value, 10);
+  const win = currentWindow();
   const end = start + win;
 
   // [start, end) with wrap-around past midnight.
@@ -652,9 +877,14 @@ function update() {
   // Stats reflect the area filter (selection if drawn, else viewport).
   let inAreaCount = 0;
   for (const e of visible) { if (inAreaFilter(e)) inAreaCount++; }
-  countLabel.textContent = inAreaCount;
-  currentLabel.textContent =
-    `Window ${fmtTod(start)} – ${fmtTod(start + win)}  (any date)`;
+  const poolN = activePool.length || 1;
+  elInWindow.textContent = inAreaCount.toLocaleString('uk-UA');
+  elHudBig.textContent   = inAreaCount.toLocaleString('uk-UA');
+  elHudPct.textContent   = ((inAreaCount / poolN) * 100).toFixed(1) + '%';
+  elWinRange.textContent = `${fmtTod(start)} – ${fmtTod(start + win)}`;
+
+  // Always redraw the histogram so bar colours track the window.
+  drawHistogram();
 
   // Draw window band(s) on the scrubber track, handling midnight wrap.
   const startPct = (start / 86400) * 100;
@@ -673,17 +903,18 @@ function update() {
 }
 
 slider.addEventListener('input', update);
-windowSel.addEventListener('change', update);
 monthSel.addEventListener('change', () => { rebuildPool(); update(); });
-window.addEventListener('resize', drawHistogram);
-map.on('moveend zoomend', () => { recomputeHistBins(); drawHistogram(); });
+window.addEventListener('resize', () => { drawHistogram(); update(); });
+map.on('moveend zoomend', () => { recomputeHistBins(); drawHistogram(); update(); });
 
 let playing = false;
 let timer = null;
-playBtn.addEventListener('click', () => {
-  playing = !playing;
-  playBtn.innerHTML = playing ? '&#10074;&#10074; Pause' : '&#9658; Play';
-  if (playing) {
+function setPlaying(on) {
+  playing = on;
+  playLabel.textContent = on ? 'ПАУЗА' : 'ВІДТВОРИТИ';
+  playBtn.querySelector('.icon').innerHTML = on ? '&#10074;&#10074;' : '&#9654;';
+  clearInterval(timer);
+  if (on) {
     // Advance 15 min every 200 ms → full 24 h sweep in ~19 s.
     timer = setInterval(() => {
       let v = parseInt(slider.value, 10) + 900;
@@ -691,8 +922,23 @@ playBtn.addEventListener('click', () => {
       slider.value = v;
       update();
     }, 200);
-  } else {
-    clearInterval(timer);
+  }
+}
+playBtn.addEventListener('click', () => setPlaying(!playing));
+resetBtn.addEventListener('click', () => { setPlaying(false); slider.value = 0; update(); });
+
+// Keyboard shortcuts.
+window.addEventListener('keydown', (e) => {
+  if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
+  if (e.code === 'Space') { e.preventDefault(); setPlaying(!playing); }
+  else if (e.code === 'ArrowRight') {
+    setPlaying(false);
+    slider.value = Math.min(86340, parseInt(slider.value, 10) + currentWindow());
+    update();
+  } else if (e.code === 'ArrowLeft') {
+    setPlaying(false);
+    slider.value = Math.max(0, parseInt(slider.value, 10) - currentWindow());
+    update();
   }
 });
 
