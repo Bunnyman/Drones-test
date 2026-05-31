@@ -1214,11 +1214,9 @@ function update() {
   const avgWin = activeDays > 0 ? inAreaCount / activeDays : 0;
   elHudAvgDay.textContent = fmtAvg(avgDay);
   elHudAvgWin.textContent = fmtAvg(avgWin);
-  // Window-size label e.g. "30 хв" / "1 год" / "2 год".
-  const winLbl = win >= 3600
-    ? `${Number((win / 3600).toFixed(1))} год`
-    : `${win / 60} хв`;
-  elHudAvgWinCap.innerHTML = `за ${winLbl}<br>в середньому`;
+  // Caption reflects the active timeframe (e.g. "за 11:30-12:30 / в середньому").
+  elHudAvgWinCap.innerHTML =
+    `за ${fmtTod(start)}-${fmtTod(end)}<br>в середньому`;
 
   // Always redraw the histogram so bar colours track the window.
   drawHistogram();
