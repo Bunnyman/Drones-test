@@ -186,14 +186,20 @@
     transform: translateX(-50%); white-space: nowrap;
   }
 
-  /* Single compact row: filters on the left, time controls on the right. */
+  /* Two stacked rows: filters on top, time controls below. */
   .bottombar {
-    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    display: flex; flex-direction: column; gap: 8px;
     font-family: var(--font-mono);
   }
-  .filters-left, .time-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .filters-left { flex: 1 1 auto; min-width: 0; }
-  .time-right   { flex: 0 0 auto; margin-left: auto; }
+  .filter-bar, .time-bar { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+  .filter-bar .filter-lbl {
+    font-size: 9.5px; letter-spacing: 0.16em;
+    color: var(--dimmer); text-transform: uppercase;
+    margin-right: -4px;
+  }
+  .filter-bar .group-sep {
+    width: 1px; height: 14px; background: var(--line); margin: 0 4px;
+  }
 
   .play {
     display: inline-flex; align-items: center; gap: 7px;
@@ -209,11 +215,13 @@
   .win-seg button {
     font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
     padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px;
-    background: rgba(255,255,255,0.03);
-    color: var(--dim); cursor: pointer; transition: all 120ms;
+    background: transparent;
+    color: var(--dimmer); cursor: pointer; transition: all 120ms;
   }
-  .win-seg button:hover { color: var(--ink); }
-  .win-seg button.is-active { background: rgba(255,139,61,0.14); border-color: var(--accent); color: var(--accent); }
+  .win-seg button:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
+  .win-seg button.is-active {
+    background: var(--accent); border-color: var(--accent); color: #1a0f06;
+  }
   .ghost-btn {
     font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
     background: transparent; border: 1px solid var(--line); border-radius: 999px;
@@ -239,17 +247,7 @@
     padding: 0 4px;
   }
 
-  /* Filter pill rows — compact */
-  .filter-group {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 3px 8px;
-    border: 1px solid var(--line);
-    background: rgba(255,255,255,0.02);
-  }
-  .filter-group > .lbl {
-    font-size: 9.5px; letter-spacing: 0.16em;
-    color: var(--dimmer); text-transform: uppercase;
-  }
+  /* Filter pills — filled when active, grey when not. */
   .pill {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 3px 9px;
@@ -257,22 +255,27 @@
     border-radius: 999px;
     font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
     cursor: pointer; user-select: none;
-    background: transparent; color: var(--dim);
+    background: transparent; color: var(--dimmer);
     transition: all 120ms;
   }
   .pill .swatch {
-    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
     background: var(--col, var(--dimmer));
     box-shadow: 0 0 0 1px rgba(255,255,255,0.12);
   }
-  .pill:hover { color: var(--ink); }
+  .pill:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
   .pill.active {
-    color: var(--ink);
+    background: var(--col, var(--accent));
     border-color: var(--col, var(--accent));
-    background: rgba(255,255,255,0.04);
+    color: #0c0c0c;
   }
-  .pill.active .swatch { box-shadow: 0 0 0 1px rgba(255,255,255,0.4); }
-  .pill.tag.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .pill.active .swatch {
+    background: rgba(0,0,0,0.35);
+    box-shadow: none;
+  }
+  .pill.tag.active {
+    background: var(--accent); border-color: var(--accent); color: #1a0f06;
+  }
 </style>
 </head>
 <body>
@@ -310,20 +313,16 @@
       <div id="scrub-axis"></div>
     </div>
     <div class="bottombar">
-      <div class="filters-left">
-        <span class="filter-group">
-          <span class="lbl">ТИП</span>
-          <span id="typeFilters"></span>
-        </span>
-        <span class="filter-group">
-          <span class="lbl">ТЕГИ</span>
-          <span id="tagFilters"></span>
-        </span>
+      <div class="filter-bar">
+        <span class="filter-lbl">ТИП</span>
+        <span id="typeFilters"></span>
+        <span class="group-sep"></span>
+        <span class="filter-lbl">ТЕГИ</span>
+        <span id="tagFilters"></span>
         <span id="areaStatus">&#9633; ОБЛАСТЬ
           <a id="clearArea">скинути</a></span>
       </div>
-      <div class="time-right">
-        <span class="readout-inline" id="winRange">&mdash;</span>
+      <div class="time-bar">
         <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
         <span class="ctrl-label">ВІКНО</span>
         <div class="win-seg" id="winSeg">
@@ -332,6 +331,7 @@
           <button data-win="7200">2 ГОД</button>
         </div>
         <button class="ghost-btn" id="resetBtn">12:00</button>
+        <span class="readout-inline" id="winRange" style="margin-left:auto">&mdash;</span>
       </div>
     </div>
   </div>
