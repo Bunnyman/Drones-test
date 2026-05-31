@@ -329,8 +329,46 @@ HTML_TEMPLATE = """<!doctype html>
     background: var(--area-soft);
     color: var(--area);
   }
-  #areaStatus.active { display: inline-flex; align-items: center; gap: 8px; }
+  #areaStatus.active { display: inline-flex; align-items: center; gap: 10px; }
   #areaStatus a { color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  #areaStatus a:hover { color: var(--area); }
+  #areaStatus .sep { opacity: .4; }
+
+  /* Saved-zones dropdown */
+  .zones-menu { position: relative; display: inline-flex; }
+  .zones-menu.empty { display: none; }
+  #zonesToggle {
+    height: 24px; padding: 0 12px;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
+    background: transparent; color: var(--area);
+    border: 0; border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  #zonesToggle:hover { background: var(--area-soft); }
+  #zonesToggle.open { background: var(--area-soft); }
+  #zonesList {
+    position: absolute; bottom: calc(100% + 6px); left: 0;
+    background: #0a0a0a; border: 1px solid var(--line);
+    padding: 4px;
+    min-width: 200px; max-height: 240px; overflow-y: auto;
+    z-index: 700;
+  }
+  #zonesList[hidden] { display: none; }
+  .zone-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink); cursor: pointer;
+    border-radius: 2px;
+  }
+  .zone-item.active { color: var(--area); }
+  .zone-item:hover { background: rgba(255,255,255,0.06); }
+  .zone-item .zone-del {
+    margin-left: auto; color: var(--dimmer);
+    cursor: pointer; padding: 0 6px; font-size: 13px; line-height: 1;
+  }
+  .zone-item .zone-del:hover { color: var(--accent); }
 
   .readout-inline {
     font-family: var(--font-mono); font-size: 11.5px; color: var(--ink);
@@ -408,8 +446,14 @@ HTML_TEMPLATE = """<!doctype html>
         <span class="group-sep"></span>
         <span class="filter-lbl">ДОСТОВІРНІСТЬ</span>
         <span id="tagFilters"></span>
-        <span id="areaStatus">&#9633; ОБЛАСТЬ
+        <span id="areaStatus">&#9633; <span id="areaLabel">ОБЛАСТЬ</span>
+          <a id="saveArea">зберегти</a>
+          <span class="sep">·</span>
           <a id="clearArea">скинути</a></span>
+        <div class="zones-menu empty" id="zonesMenu">
+          <button id="zonesToggle">ЗОНИ <span id="zonesCount"></span> &#9662;</button>
+          <div id="zonesList" hidden></div>
+        </div>
       </div>
       <div class="time-bar">
         <span class="readout-inline" id="winRange">&mdash;</span>
@@ -467,6 +511,78 @@ const drawControl = new L.Control.Draw({
 map.addControl(drawControl);
 
 let selectionPolygon = null;  // [[lat,lon], ...] or null
+let activeZoneIdx   = -1;     // index in savedZones if a saved zone is loaded
+
+// --- saved zones (localStorage) ---
+const ZONES_KEY = 'drones-saved-zones';
+function getSavedZones() {
+  try { return JSON.parse(localStorage.getItem(ZONES_KEY) || '[]'); }
+  catch { return []; }
+}
+function setSavedZones(list) {
+  try { localStorage.setItem(ZONES_KEY, JSON.stringify(list)); }
+  catch (e) { console.warn('Could not save zones:', e); }
+}
+let savedZones = getSavedZones();
+
+function renderZonesMenu() {
+  const menu  = document.getElementById('zonesMenu');
+  const list  = document.getElementById('zonesList');
+  const count = document.getElementById('zonesCount');
+  menu.classList.toggle('empty', savedZones.length === 0);
+  count.textContent = savedZones.length ? `(${savedZones.length})` : '';
+  list.innerHTML = '';
+  savedZones.forEach((z, i) => {
+    const row = document.createElement('div');
+    row.className = 'zone-item' + (i === activeZoneIdx ? ' active' : '');
+    const lbl = document.createElement('span');
+    lbl.textContent = z.name;
+    lbl.addEventListener('click', () => loadZone(i));
+    row.appendChild(lbl);
+    const del = document.createElement('span');
+    del.className = 'zone-del';
+    del.textContent = '×';
+    del.title = 'Видалити';
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteZone(i);
+    });
+    row.appendChild(del);
+    list.appendChild(row);
+  });
+}
+
+function loadZone(idx) {
+  const z = savedZones[idx];
+  if (!z) return;
+  drawnItems.clearLayers();
+  const layer = L.polygon(z.polygon, {
+    color: '#67e8f9', weight: 2, fillOpacity: 0.08
+  });
+  drawnItems.addLayer(layer);
+  activeZoneIdx = idx;
+  document.getElementById('zonesList').hidden = true;
+  document.getElementById('zonesToggle').classList.remove('open');
+  refreshSelectionFromLayers();
+  map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+}
+function deleteZone(idx) {
+  savedZones.splice(idx, 1);
+  setSavedZones(savedZones);
+  if (idx === activeZoneIdx) activeZoneIdx = -1;
+  else if (idx < activeZoneIdx) activeZoneIdx--;
+  renderZonesMenu();
+}
+function saveCurrentZone() {
+  if (!selectionPolygon) return;
+  const def = `Зона ${savedZones.length + 1}`;
+  const name = prompt('Назва зони:', def);
+  if (!name) return;
+  savedZones.push({ name: name.trim() || def, polygon: selectionPolygon });
+  setSavedZones(savedZones);
+  activeZoneIdx = savedZones.length - 1;
+  renderZonesMenu();
+}
 
 function pointInPolygon(lat, lon, poly) {
   let inside = false;
@@ -492,6 +608,13 @@ function refreshSelectionFromLayers() {
     selectionPolygon = ll.map(p => [p.lat, p.lng]);
   }
   document.getElementById('areaStatus').classList.toggle('active', !!selectionPolygon);
+  document.getElementById('areaLabel').textContent =
+    selectionPolygon && activeZoneIdx >= 0 && savedZones[activeZoneIdx]
+      ? savedZones[activeZoneIdx].name.toUpperCase()
+      : 'ОБЛАСТЬ';
+  document.getElementById('saveArea').style.display =
+    selectionPolygon && activeZoneIdx < 0 ? '' : 'none';
+  renderZonesMenu();
   recomputeHistBins();
   drawHistogram();
   update();
@@ -500,14 +623,34 @@ function refreshSelectionFromLayers() {
 map.on(L.Draw.Event.CREATED, (e) => {
   drawnItems.clearLayers();          // single-shape selection
   drawnItems.addLayer(e.layer);
+  activeZoneIdx = -1;                 // freshly drawn — not yet saved
   refreshSelectionFromLayers();
 });
-map.on(L.Draw.Event.EDITED,  refreshSelectionFromLayers);
-map.on(L.Draw.Event.DELETED, refreshSelectionFromLayers);
+map.on(L.Draw.Event.EDITED,  () => { activeZoneIdx = -1; refreshSelectionFromLayers(); });
+map.on(L.Draw.Event.DELETED, () => { activeZoneIdx = -1; refreshSelectionFromLayers(); });
 document.getElementById('clearArea').addEventListener('click', () => {
   drawnItems.clearLayers();
+  activeZoneIdx = -1;
   refreshSelectionFromLayers();
 });
+document.getElementById('saveArea').addEventListener('click', saveCurrentZone);
+
+// Zones menu open/close
+const zonesToggle = document.getElementById('zonesToggle');
+const zonesList   = document.getElementById('zonesList');
+zonesToggle.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const open = zonesList.hidden;
+  zonesList.hidden = !open;
+  zonesToggle.classList.toggle('open', open);
+});
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('zonesMenu').contains(e.target)) {
+    zonesList.hidden = true;
+    zonesToggle.classList.remove('open');
+  }
+});
+renderZonesMenu();
 
 // --- type / tag filters ---
 const TYPE_COLORS = {
