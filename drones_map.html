@@ -387,7 +387,7 @@
         </div>
         <div class="cell">
           <div class="v" id="hudAvgWin">0</div>
-          <div class="cap">за період<br>в середньому</div>
+          <div class="cap" id="hudAvgWinCap">за період<br>в середньому</div>
         </div>
       </div>
       <div class="hr"></div>
@@ -733,6 +733,7 @@ const winSeg = document.getElementById('winSeg');
 const elHudTimeframe = document.getElementById('hudTimeframe');
 const elHudAvgDay    = document.getElementById('hudAvgDay');
 const elHudAvgWin    = document.getElementById('hudAvgWin');
+const elHudAvgWinCap = document.getElementById('hudAvgWinCap');
 const elHudPeakHigh  = document.getElementById('hudPeakHigh');
 const elHudPeakLow   = document.getElementById('hudPeakLow');
 const elClock        = document.getElementById('clock');
@@ -1104,6 +1105,11 @@ function update() {
   const avgWin = activeDays > 0 ? inAreaCount       / activeDays : 0;
   elHudAvgDay.textContent = fmtAvg(avgDay);
   elHudAvgWin.textContent = fmtAvg(avgWin);
+  // Window-size label e.g. "30 хв" / "1 год" / "2 год".
+  const winLbl = win >= 3600
+    ? `${Number((win / 3600).toFixed(1))} год`
+    : `${win / 60} хв`;
+  elHudAvgWinCap.innerHTML = `за ${winLbl}<br>в середньому`;
 
   // Always redraw the histogram so bar colours track the window.
   drawHistogram();
