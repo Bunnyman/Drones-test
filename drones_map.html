@@ -453,8 +453,8 @@
         <span class="filter-lbl">ВІКНО</span>
         <div class="win-seg" id="winSeg">
           <button data-win="1800">30 ХВ</button>
-          <button data-win="3600" class="is-active">1 ГОД</button>
-          <button data-win="7200">2 ГОД</button>
+          <button data-win="3600">1 ГОД</button>
+          <button data-win="7200" class="is-active">2 ГОД</button>
         </div>
         <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
       </span>
@@ -708,13 +708,15 @@ const allTypes = [...new Set(EVENTS.map(e => e.type))]
 const allTags = [...new Set(EVENTS.flatMap(e => e.tags))].sort();
 
 const enabledTypes = new Set(allTypes);
-const enabledTags  = new Set(allTags);
+// Достовірність: середня is OFF by default (only high-credibility events).
+const enabledTags  = new Set(allTags.filter(t => t.toLowerCase() !== 'credibility: medium'));
 
 function buildPillRow(host, items, enabledSet, labelFn, colorFn, extraClass, onChange) {
   host.innerHTML = '';
   for (const it of items) {
     const pill = document.createElement('span');
-    pill.className = 'pill active' + (extraClass ? ' ' + extraClass : '');
+    pill.className = 'pill' + (enabledSet.has(it) ? ' active' : '')
+                            + (extraClass ? ' ' + extraClass : '');
     if (extraClass === 'type') pill.dataset.type = it;
     if (colorFn) pill.style.setProperty('--col', colorFn(it));
     pill.textContent = labelFn(it);
