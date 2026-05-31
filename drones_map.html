@@ -61,12 +61,6 @@
     background: rgba(0,0,0,0.7) !important; color: var(--ink) !important;
     border: 1px solid var(--line) !important;
   }
-  /* Leaflet.draw toolbar restyle */
-  .leaflet-draw-toolbar a, .leaflet-draw-actions a {
-    background-color: rgba(0,0,0,0.7) !important;
-    border-color: var(--line) !important;
-    color: var(--ink) !important;
-  }
   .leaflet-popup-content-wrapper, .leaflet-popup-tip {
     background: #111; color: var(--ink); border: 1px solid var(--line);
     border-radius: 0; font-family: var(--font-mono); font-size: 11px;
@@ -254,15 +248,35 @@
   }
   .ghost-btn:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
 
-  /* Area-selection controls — anchored to the bottom-left of the map. */
-  .map-area-controls {
+  /* Map control toolbar — anchored to the bottom-left of the map. */
+  .map-toolbar {
     position: absolute; bottom: 18px; left: 18px; z-index: 500;
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
+  .map-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 28px; padding: 0 14px;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
+    color: var(--ink);
+    background: rgba(0,0,0,0.72);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition: all 120ms;
+  }
+  .map-btn:hover { border-color: var(--area); color: var(--area); }
+  .map-btn.is-active { border-color: var(--area); color: var(--area); background: rgba(0,0,0,0.85); }
+  .map-btn .ic {
+    font-size: 13px; line-height: 1; color: var(--area);
+  }
+  .map-btn:hover .ic, .map-btn.is-active .ic { color: var(--area); }
+
   #areaStatus {
     display: none;
     font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em;
-    padding: 6px 14px; border-radius: 999px;
+    padding: 0 14px; height: 28px;
+    border-radius: 999px;
     background: rgba(0,0,0,0.72);
     border: 1px solid var(--area);
     color: var(--area);
@@ -273,27 +287,39 @@
   #areaStatus a:hover { color: var(--area); }
   #areaStatus .sep { opacity: .4; }
 
-  /* Saved-zones dropdown */
+  /* Saved-zones dropdown — uses the shared .map-btn for its trigger. */
   .zones-menu { position: relative; display: inline-flex; }
   .zones-menu.empty { display: none; }
-  #zonesToggle {
-    height: 28px; padding: 0 14px;
-    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
-    background: rgba(0,0,0,0.72); color: var(--area);
-    border: 1px solid var(--area); border-radius: 999px;
-    cursor: pointer;
-    display: inline-flex; align-items: center; gap: 5px;
+
+  /* Restyle Leaflet's default zoom control to match the map-btn pill. */
+  .leaflet-control-zoom {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent;
+    margin: 18px !important;
+  }
+  .leaflet-control-zoom a {
+    width: 28px !important; height: 28px !important; line-height: 26px !important;
+    font-size: 16px !important;
+    color: var(--ink) !important;
+    background: rgba(0,0,0,0.72) !important;
+    border: 1px solid var(--line) !important;
     backdrop-filter: blur(6px);
   }
-  #zonesToggle:hover { background: rgba(0,0,0,0.85); }
-  #zonesToggle.open { background: rgba(0,0,0,0.9); }
+  .leaflet-control-zoom a:hover {
+    color: var(--area) !important;
+    border-color: var(--area) !important;
+  }
+  .leaflet-control-zoom-in  { border-radius: 14px 14px 0 0 !important; }
+  .leaflet-control-zoom-out { border-radius: 0 0 14px 14px !important; border-top: 0 !important; }
   #zonesList {
     position: absolute; bottom: calc(100% + 6px); left: 0;
     background: rgba(10,10,10,0.95); border: 1px solid var(--line);
     padding: 4px;
-    min-width: 200px; max-height: 240px; overflow-y: auto;
+    min-width: 220px; max-height: 240px; overflow-y: auto;
     z-index: 700;
     backdrop-filter: blur(6px);
+    border-radius: 6px;
   }
   #zonesList[hidden] { display: none; }
   .zone-item {
@@ -377,13 +403,19 @@
       </div>
     </div>
 
-    <div class="map-area-controls">
+    <div class="map-toolbar">
+      <button class="map-btn" id="drawRect" title="Намалювати прямокутник">
+        <span class="ic">&#9645;</span> ПРЯМОКУТНИК
+      </button>
+      <button class="map-btn" id="drawPoly" title="Намалювати полігон">
+        <span class="ic">&#9700;</span> ПОЛІГОН
+      </button>
       <span id="areaStatus">&#9633; <span id="areaLabel">ОБЛАСТЬ</span>
         <a id="saveArea">зберегти</a>
         <span class="sep">·</span>
         <a id="clearArea">скинути</a></span>
       <div class="zones-menu empty" id="zonesMenu">
-        <button id="zonesToggle">ЗОНИ <span id="zonesCount"></span> &#9662;</button>
+        <button class="map-btn" id="zonesToggle"><span class="ic">&#9776;</span> ЗОНИ <span id="zonesCount"></span></button>
         <div id="zonesList" hidden></div>
       </div>
     </div>
@@ -452,20 +484,26 @@ const markerLayer = L.layerGroup().addTo(map);
 // --- area selection (rectangle / polygon) ---
 const drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
-const drawControl = new L.Control.Draw({
-  position: 'topright',
-  draw: {
-    polyline: false,
-    circle: false,
-    circlemarker: false,
-    marker: false,
-    rectangle: { shapeOptions: { color: '#67e8f9', weight: 2, fillOpacity: 0.08 } },
-    polygon: { shapeOptions: { color: '#67e8f9', weight: 2, fillOpacity: 0.08 },
-               allowIntersection: false, showArea: false }
-  },
-  edit: { featureGroup: drawnItems, edit: true, remove: true }
+
+// Shared draw options for both the rectangle and polygon tools — we use
+// the L.Draw.* classes directly and skip L.Control.Draw entirely so we
+// can render our own buttons in the bottom-left toolbar.
+const SHAPE_OPTS = { color: '#67e8f9', weight: 2, fillOpacity: 0.08 };
+let currentDrawHandler = null;
+function startDraw(handlerCtor, opts) {
+  if (currentDrawHandler) currentDrawHandler.disable();
+  currentDrawHandler = new handlerCtor(map, opts);
+  currentDrawHandler.enable();
+}
+map.on(L.Draw.Event.DRAWSTART, (e) => {
+  document.getElementById('drawRect').classList.toggle('is-active', e.layerType === 'rectangle');
+  document.getElementById('drawPoly').classList.toggle('is-active', e.layerType === 'polygon');
 });
-map.addControl(drawControl);
+map.on(L.Draw.Event.DRAWSTOP, () => {
+  document.getElementById('drawRect').classList.remove('is-active');
+  document.getElementById('drawPoly').classList.remove('is-active');
+  currentDrawHandler = null;
+});
 
 let selectionPolygon = null;  // [[lat,lon], ...] or null
 let activeZoneIdx   = -1;     // index in savedZones if a saved zone is loaded
@@ -591,6 +629,13 @@ document.getElementById('clearArea').addEventListener('click', () => {
   refreshSelectionFromLayers();
 });
 document.getElementById('saveArea').addEventListener('click', saveCurrentZone);
+document.getElementById('drawRect').addEventListener('click', () =>
+  startDraw(L.Draw.Rectangle, { shapeOptions: SHAPE_OPTS })
+);
+document.getElementById('drawPoly').addEventListener('click', () =>
+  startDraw(L.Draw.Polygon, { shapeOptions: SHAPE_OPTS,
+                              allowIntersection: false, showArea: false })
+);
 
 // Zones menu open/close
 const zonesToggle = document.getElementById('zonesToggle');
