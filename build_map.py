@@ -566,6 +566,25 @@ map.fitBounds(allBounds, { padding: [20, 20] });
 const markerRenderer = L.canvas({ padding: 0.5 });
 const markerLayer = L.layerGroup().addTo(map);
 
+// Pane for the "spotlight" mask: above the tiles, below the markers,
+// non-interactive so clicks pass through to the map.
+map.createPane('mask');
+map.getPane('mask').style.zIndex = 250;
+map.getPane('mask').style.pointerEvents = 'none';
+let maskLayer = null;
+const WORLD_RING = [[-89.9, -179.9], [-89.9, 179.9], [89.9, 179.9], [89.9, -179.9]];
+function updateMask() {
+  if (maskLayer) { map.removeLayer(maskLayer); maskLayer = null; }
+  if (!selectionPolygon) return;
+  // Polygon with the whole world as the outer ring and the selection as a
+  // hole, filled with semi-transparent black for a spotlight effect.
+  maskLayer = L.polygon([WORLD_RING, selectionPolygon], {
+    color: 'transparent', stroke: false,
+    fillColor: '#000', fillOpacity: 0.65,
+    interactive: false, pane: 'mask',
+  }).addTo(map);
+}
+
 // --- area selection (rectangle / polygon) ---
 const drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
@@ -695,6 +714,7 @@ function refreshSelectionFromLayers() {
   document.getElementById('saveArea').style.display =
     selectionPolygon && activeZoneIdx < 0 ? '' : 'none';
   renderZonesMenu();
+  updateMask();
   recomputeHistBins();
   drawHistogram();
   update();
@@ -1162,13 +1182,15 @@ function update() {
   const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   for (const e of visible) {
     const col = typeColor(e.type);
+    const inSel = !selectionPolygon || pointInPolygon(e.lat, e.lon, selectionPolygon);
     const marker = L.circleMarker([e.lat, e.lon], {
       renderer: markerRenderer,
       radius: 5,
       color: col,
       weight: 1,
+      opacity: inSel ? 1 : 0.25,
       fillColor: col,
-      fillOpacity: 0.55,
+      fillOpacity: inSel ? 0.55 : 0.12,
     });
     const meta = [e.name, e.type, e.comment].filter(s => s).join(' · ');
     marker.bindPopup(
