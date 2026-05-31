@@ -1122,9 +1122,12 @@ function update() {
   let inAreaCount = 0;
   for (const e of visible) { if (inAreaFilter(e)) inAreaCount++; }
   elHudTimeframe.textContent = `${fmtTod(start)} – ${fmtTod(end)}`;
+  // The histogram bins are already area-filtered, so their sum is the
+  // total event count inside the active area across the full 24 h.
+  const inAreaTotal = histBins.reduce((s, n) => s + n, 0);
   const fmtAvg = (v) => v >= 10 ? v.toFixed(0) : v.toFixed(1);
-  const avgDay = activeDays > 0 ? activePool.length / activeDays : 0;
-  const avgWin = activeDays > 0 ? inAreaCount       / activeDays : 0;
+  const avgDay = activeDays > 0 ? inAreaTotal / activeDays : 0;
+  const avgWin = activeDays > 0 ? inAreaCount / activeDays : 0;
   elHudAvgDay.textContent = fmtAvg(avgDay);
   elHudAvgWin.textContent = fmtAvg(avgWin);
   // Window-size label e.g. "30 хв" / "1 год" / "2 год".
