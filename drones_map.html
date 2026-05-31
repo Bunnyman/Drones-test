@@ -219,14 +219,13 @@
     height: 24px; padding: 0 12px;
     font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
     line-height: 1;
-    border: 1px solid var(--line); border-radius: 999px;
+    border: 0; border-radius: 999px;
     background: transparent;
     color: var(--dimmer); cursor: pointer; transition: all 120ms;
   }
-  .win-seg button:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
+  .win-seg button:hover { color: var(--ink); }
   .win-seg button.is-active {
     background: rgba(255,255,255,0.16);
-    border-color: rgba(255,255,255,0.28);
     color: var(--ink);
   }
   .ghost-btn {
@@ -262,7 +261,7 @@
   .pill {
     display: inline-flex; align-items: center;
     height: 24px; padding: 0 12px;
-    border: 1px solid var(--line);
+    border: 0;
     border-radius: 999px;
     font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em;
     line-height: 1;
@@ -270,17 +269,16 @@
     background: transparent; color: var(--dimmer);
     transition: all 120ms;
   }
-  .pill:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
-  /* Default active highlight is a soft medium grey — applies to non-FPV
-     types, all tag pills, and the active time-frame button. */
+  .pill:hover { color: var(--ink); }
+  /* Default active highlight (tags): a soft medium grey. */
   .pill.active {
     background: rgba(255,255,255,0.16);
-    border-color: rgba(255,255,255,0.28);
     color: var(--ink);
   }
-  /* FPV (the dominant type) keeps the accent-orange highlight. */
-  .pill.active[data-type="FPV"] {
-    background: var(--accent); border-color: var(--accent); color: #1a0f06;
+  /* Type pills fall back to their own colour when active. */
+  .pill.type.active {
+    background: var(--col, rgba(255,255,255,0.16));
+    color: #0c0c0c;
   }
 </style>
 </head>
