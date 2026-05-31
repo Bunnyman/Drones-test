@@ -550,9 +550,10 @@ const EVENTS = __DATA__;
 
 const map = L.map('map', {
   preferCanvas: true,
-  zoomControl: true,
+  zoomControl: false,
   attributionControl: true,
 });
+L.control.zoom({ position: 'bottomright' }).addTo(map);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
   maxZoom: 19,
   attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics',
