@@ -179,7 +179,7 @@ HTML_TEMPLATE = """<!doctype html>
     font-size: 22px; letter-spacing: 0.04em;
     color: var(--ink);
   }
-  .hud .cell .v.peak { color: var(--accent-2); }
+  .hud .cell .v.peak { color: var(--accent); }
   .hud .cell .v.low  { color: var(--dim); }
 
   /* ── Scrubber bar ─────────────────────────────────────── */
