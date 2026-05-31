@@ -251,9 +251,12 @@
   }
 
   /* Filter pills — filled when active, grey when not. */
+  #typeFilters, #tagFilters {
+    display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
   .pill {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 9px;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 3px 11px;
     border: 1px solid var(--line);
     border-radius: 999px;
     font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
@@ -261,10 +264,14 @@
     background: transparent; color: var(--dimmer);
     transition: all 120ms;
   }
+  /* Type pills carry a coloured swatch on the left — push it flush to
+     the pill's left border, no inner padding on that side. */
+  .pill.type { padding-left: 4px; }
   .pill .swatch {
-    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%;
     background: var(--col, var(--dimmer));
     box-shadow: 0 0 0 1px rgba(255,255,255,0.12);
+    flex: none;
   }
   .pill:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
   .pill.active {
