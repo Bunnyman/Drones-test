@@ -83,6 +83,7 @@ def parse_rows():
 
 
 HTML_TEMPLATE = """<!doctype html>
+<!-- build: __BUILD__ -->
 <html lang="uk">
 <head>
 <meta charset="utf-8">
@@ -1338,12 +1339,14 @@ def main():
     events = parse_rows()
     dates = sorted({e["date"] for e in events})
     date_range = f"{dates[0]} → {dates[-1]}"
+    build_stamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     html = (
         HTML_TEMPLATE
         .replace("__DATA__", json.dumps(events, separators=(",", ":")))
         .replace("__TOTAL__", str(len(events)))
         .replace("__DAYS__", str(len(dates)))
         .replace("__DATE_RANGE__", date_range)
+        .replace("__BUILD__", build_stamp)
     )
     OUT_PATH.write_text(html)
     print(f"Wrote {OUT_PATH} ({OUT_PATH.stat().st_size:,} bytes)")
