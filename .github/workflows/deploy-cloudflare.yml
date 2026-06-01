@@ -28,6 +28,26 @@ jobs:
           mkdir -p _site
           cp drones_map.html _site/index.html
 
+      - name: Pre-flight — secrets present?
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          tok_len=${#CLOUDFLARE_API_TOKEN}
+          acct_len=${#CLOUDFLARE_ACCOUNT_ID}
+          echo "CLOUDFLARE_API_TOKEN  length: $tok_len"
+          echo "CLOUDFLARE_ACCOUNT_ID length: $acct_len"
+          missing=0
+          if [ "$tok_len" -eq 0 ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN secret is missing or empty in repo settings"
+            missing=1
+          fi
+          if [ "$acct_len" -eq 0 ]; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID secret is missing or empty in repo settings"
+            missing=1
+          fi
+          exit $missing
+
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
