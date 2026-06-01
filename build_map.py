@@ -350,54 +350,40 @@ HTML_TEMPLATE = """<!doctype html>
   }
   .ghost-btn:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); }
 
-  /* Map control toolbar — anchored to the top-right of the map. The
-     #zoneToggle pill stays visible; everything else lives inside
-     #zoneControls which collapses by default. */
-  .map-toolbar {
-    position: absolute; top: 18px; right: 18px; z-index: 500;
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    justify-content: flex-end;
-  }
+  /* Inline strip below the filter-bar; collapsed by default. */
   .zone-controls {
-    display: none; align-items: center; gap: 8px; flex-wrap: wrap;
-    justify-content: flex-end;
+    display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 4px 0 2px;
   }
   .zone-controls.open { display: flex; }
-  .map-btn {
+  .panel-btn {
     display: inline-flex; align-items: center; gap: 6px;
-    height: 28px; padding: 0 14px;
-    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
-    color: var(--ink);
-    background: rgba(0,0,0,0.72);
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    cursor: pointer;
-    backdrop-filter: blur(6px);
-    transition: all 120ms;
+    height: 26px; padding: 0 12px;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em;
+    color: var(--dim);
+    background: transparent;
+    border: 1px solid var(--line); border-radius: 999px;
+    cursor: pointer; transition: all 120ms;
   }
-  .map-btn:hover { border-color: var(--area); color: var(--area); }
-  .map-btn.is-active { border-color: var(--area); color: var(--area); background: rgba(0,0,0,0.85); }
-  .map-btn .ic {
-    font-size: 13px; line-height: 1; color: var(--area);
-  }
-  .map-btn:hover .ic, .map-btn.is-active .ic { color: var(--area); }
+  .panel-btn:hover { color: var(--ink); border-color: rgba(255,255,255,0.25); }
+  .panel-btn.is-active { color: var(--area); border-color: var(--area); background: var(--area-soft); }
+  .panel-btn .ic { color: var(--area); font-size: 12px; }
 
   #areaStatus {
     display: none;
     font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em;
-    padding: 0 14px; height: 28px;
+    padding: 0 14px; height: 26px;
     border-radius: 999px;
-    background: rgba(0,0,0,0.72);
+    background: var(--area-soft);
     border: 1px solid var(--area);
     color: var(--area);
-    backdrop-filter: blur(6px);
   }
   #areaStatus.active { display: inline-flex; align-items: center; gap: 10px; }
   #areaStatus a { color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
   #areaStatus a:hover { color: var(--area); }
   #areaStatus .sep { opacity: .4; }
 
-  /* Saved-zones dropdown — uses the shared .map-btn for its trigger. */
+  /* Saved-zones dropdown lives inside the .zone-controls strip. */
   .zones-menu { position: relative; display: inline-flex; }
   .zones-menu.empty { display: none; }
 
@@ -423,7 +409,7 @@ HTML_TEMPLATE = """<!doctype html>
   .leaflet-control-zoom-in  { border-radius: 14px 14px 0 0 !important; }
   .leaflet-control-zoom-out { border-radius: 0 0 14px 14px !important; border-top: 0 !important; }
   #zonesList {
-    position: absolute; top: calc(100% + 6px); right: 0;
+    position: absolute; bottom: calc(100% + 6px); left: 0;
     background: rgba(10,10,10,0.95); border: 1px solid var(--line);
     padding: 4px;
     min-width: 220px; max-height: 240px; overflow-y: auto;
@@ -512,24 +498,6 @@ HTML_TEMPLATE = """<!doctype html>
       </div>
     </div>
 
-    <div class="map-toolbar">
-      <div class="zone-controls" id="zoneControls">
-        <button class="map-btn" id="drawRect" title="Намалювати прямокутник">
-          <span class="ic">&#9645;</span> ПРЯМОКУТНИК
-        </button>
-        <button class="map-btn" id="drawPoly" title="Намалювати полігон">
-          <span class="ic">&#9700;</span> ПОЛІГОН
-        </button>
-        <span id="areaStatus">&#9633; <span id="areaLabel">ОБЛАСТЬ</span>
-          <a id="saveArea">зберегти</a>
-          <span class="sep">·</span>
-          <a id="clearArea">скинути</a></span>
-        <div class="zones-menu empty" id="zonesMenu">
-          <button class="map-btn" id="zonesToggle"><span class="ic">&#9776;</span> ЗБЕРЕЖЕНІ <span id="zonesCount"></span></button>
-          <div id="zonesList" hidden></div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- Scrubber -->
@@ -560,6 +528,22 @@ HTML_TEMPLATE = """<!doctype html>
         </div>
         <button class="play" id="play"><span class="icon">&#9654;</span><span id="playLabel">ВІДТВОРИТИ</span></button>
       </span>
+    </div>
+    <div class="zone-controls" id="zoneControls">
+      <button class="panel-btn" id="drawRect" title="Намалювати прямокутник">
+        <span class="ic">&#9645;</span> ПРЯМОКУТНИК
+      </button>
+      <button class="panel-btn" id="drawPoly" title="Намалювати полігон">
+        <span class="ic">&#9700;</span> ПОЛІГОН
+      </button>
+      <span id="areaStatus">&#9633; <span id="areaLabel">ОБЛАСТЬ</span>
+        <a id="saveArea">зберегти</a>
+        <span class="sep">·</span>
+        <a id="clearArea">скинути</a></span>
+      <div class="zones-menu empty" id="zonesMenu">
+        <button class="panel-btn" id="zonesToggle"><span class="ic">&#9776;</span> ЗБЕРЕЖЕНІ <span id="zonesCount"></span></button>
+        <div id="zonesList" hidden></div>
+      </div>
     </div>
     <div id="scrub">
       <canvas id="hist"></canvas>
