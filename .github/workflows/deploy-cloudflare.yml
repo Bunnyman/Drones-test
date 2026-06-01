@@ -28,18 +28,27 @@ jobs:
           mkdir -p _site
           cp drones_map.html _site/index.html
 
-      # Idempotent: succeeds whether the project already exists or not.
-      - name: Ensure Pages project exists
-        uses: cloudflare/wrangler-action@v3
-        continue-on-error: true
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages project create drones-timeline --production-branch=main
-
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy _site --project-name=drones-timeline --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_LOG: debug
+        run: |
+          set +e
+          echo "::group::Account sanity check (whoami)"
+          npx wrangler@latest whoami
+          echo "::endgroup::"
+
+          echo "::group::Ensure project exists"
+          npx wrangler@latest pages project create drones-timeline \
+            --production-branch=main
+          create_status=$?
+          echo "project-create exited with $create_status (non-zero is OK if it already exists)"
+          echo "::endgroup::"
+
+          set -e
+          echo "::group::Deploy"
+          npx wrangler@latest pages deploy _site \
+            --project-name=drones-timeline \
+            --branch=main
+          echo "::endgroup::"
