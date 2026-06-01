@@ -294,6 +294,14 @@ HTML_TEMPLATE = """<!doctype html>
     background: var(--accent);
     margin-left: 2px;
   }
+  /* Cyan variant for the ОБЛАСТЬ (zone) toggle. */
+  .title-btn.zone.is-active { color: var(--area); border-color: var(--area); background: var(--area-soft); }
+  .title-btn.zone.has-area::after {
+    content: ''; display: inline-block;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--area);
+    margin-left: 2px;
+  }
 
   .filter-bar { display: none; align-items: center; gap: 14px; flex-wrap: wrap; padding: 4px 0 2px; }
   .filter-bar.open { display: flex; }
@@ -355,12 +363,6 @@ HTML_TEMPLATE = """<!doctype html>
     justify-content: flex-end;
   }
   .zone-controls.open { display: flex; }
-  #zoneToggle.is-active { border-color: var(--area); color: var(--area); background: rgba(0,0,0,0.85); }
-  #zoneToggle.has-area::after {
-    content: ''; display: inline-block;
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--area); margin-left: 4px;
-  }
   .map-btn {
     display: inline-flex; align-items: center; gap: 6px;
     height: 28px; padding: 0 14px;
@@ -527,7 +529,6 @@ HTML_TEMPLATE = """<!doctype html>
           <div id="zonesList" hidden></div>
         </div>
       </div>
-      <button class="map-btn" id="zoneToggle">ОБЛАСТЬ <span id="zoneChev">&#9662;</span></button>
     </div>
   </div>
 
@@ -540,6 +541,7 @@ HTML_TEMPLATE = """<!doctype html>
       </div>
       <div class="title-tools">
         <button id="filterToggle" class="title-btn">ФІЛЬТРИ <span id="filterChev">&#9662;</span></button>
+        <button id="zoneToggle" class="title-btn zone">ОБЛАСТЬ <span id="zoneChev">&#9662;</span></button>
         <select class="topbar-select" id="monthSel"></select>
       </div>
     </div>
